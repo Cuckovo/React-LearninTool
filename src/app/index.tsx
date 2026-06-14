@@ -1,22 +1,44 @@
 import { StyleSheet, View, ActivityIndicator, Platform } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { useCallback, useRef, useState, useEffect } from 'react';
 
-/** GeoGebra 入口 HTML 相对路径 */
 const GEOGEBRA_ENTRY = 'geogebra/GeoGebra.html';
+
+/** GeoGebra WebView geogebra-ready 消息类型 */
+interface GeogebraReadyMessage {
+  type: 'geogebra:ready';
+}
 
 export default function GeoGebraScreen() {
   const [loading, setLoading] = useState(true);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const webViewRef = useRef<WebView>(null);
+  // 用一个 ref 跟踪 WebView 是否已收到 GeoGebra ready 信号
+  const geogebraReadyRef = useRef(false);
 
   useEffect(() => {
-    // Web 开发模式：fetch GeoGebra HTML 内联注入
-    // Metro 不直接 serve assets/，所以从 public/ 抓取
     if (Platform.OS === 'web') {
       fetch(`/${GEOGEBRA_ENTRY}`)
         .then((res) => res.text())
-        .then((html) => setHtmlContent(html))
+        .then((html) => {
+          // 注入 postMessage 桥接：GeoGebra 加载完成后通知 RN
+          const injectedHtml = html.replace(
+            '</body>',
+            `<script>
+(function() {
+  var checkReady = setInterval(function() {
+    if (window.renderGGBElementReady || typeof ggbApplet !== 'undefined') {
+      clearInterval(checkReady);
+      window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+        JSON.stringify({ type: 'geogebra:ready' })
+      );
+    }
+  }, 200);
+})();
+</script></body>`
+          );
+          setHtmlContent(injectedHtml);
+        })
         .catch((err) => {
           console.error('[GeoGebra] HTML fetch 失败:', err);
           setLoading(false);
@@ -24,8 +46,28 @@ export default function GeoGebraScreen() {
     }
   }, []);
 
+  const handleMessage = useCallback((event: WebViewMessageEvent) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data) as GeogebraReadyMessage;
+      if (data.type === 'geogebra:ready') {
+        geogebraReadyRef.current = true;
+        // 等 GeoGebra 真正 ready 后再隐藏 loading，并额外延迟确保 UI 渲染
+        setTimeout(() => setLoading(false), 500);
+      }
+    } catch {
+      // 非 JSON 消息，忽略
+    }
+  }, []);
+
   const handleLoadEnd = useCallback(() => {
-    setLoading(false);
+    // WebView DOM 加载完毕，但 GeoGebra 可能还在初始化
+    // 如果 8 秒内没收到 geogebra:ready，也关闭 loading
+    setTimeout(() => {
+      if (!geogebraReadyRef.current) {
+        console.warn('[GeoGebra] 超时未收到 ready 信号，强制关闭 loading');
+        setLoading(false);
+      }
+    }, 8000);
   }, []);
 
   return (
@@ -46,6 +88,7 @@ export default function GeoGebraScreen() {
           javaScriptEnabled={true}
           domStorageEnabled={true}
           onLoadEnd={handleLoadEnd}
+          onMessage={handleMessage}
           originWhitelist={['*']}
         />
       ) : (
@@ -58,6 +101,7 @@ export default function GeoGebraScreen() {
           allowFileAccess={true}
           allowUniversalAccessFromFileURLs={true}
           onLoadEnd={handleLoadEnd}
+          onMessage={handleMessage}
           originWhitelist={['*']}
         />
       )}
