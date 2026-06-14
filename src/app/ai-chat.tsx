@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useAppState, generateId, type ChatMessage, type ParsedAIResponse } from '@/lib/app-state';
 import { parseAIResponse } from '@/lib/ai-parser';
 import { sendChatMessage } from '@/lib/api';
+import { GeoGebraDrawIcon, MathLanguageIcon, PushMessageIcon } from '@/constants/icons';
 
 function useLatestParsed() {
   const { state } = useAppState();
@@ -66,6 +67,7 @@ export default function AIChatScreen() {
 
   const { isPlottable, functionExpression, hasSolution } = useLatestParsed();
   const hasMessages = messages.length > 0;
+  const canSend = !!input.trim() && !isLoading;
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -74,7 +76,6 @@ export default function AIChatScreen() {
   const handleViewPlot = useCallback(() => {
     if (!functionExpression) return;
     dispatch({ type: 'SEND_PLOT_COMMAND', payload: { expression: functionExpression, timestamp: Date.now() } });
-    // 用 router 真正的路由跳转，而不是仅改 state
     router.navigate('/');
   }, [functionExpression, dispatch, router]);
 
@@ -129,7 +130,7 @@ export default function AIChatScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <ChatBubble message={item} />}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, paddingBottom: 16 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, paddingBottom: 8 }}
           onContentSizeChange={() => scrollToBottom()}
           onLayout={() => scrollToBottom()}
         />
@@ -157,59 +158,65 @@ export default function AIChatScreen() {
         </View>
       )}
 
-      {/* 操作按钮列表 — 输入框上方，镂空样式 */}
+      {/* 操作按钮列表 — 输入框上方，镂空 + icon */}
       <View className="flex-row justify-end gap-2 px-sk-4 py-2 bg-sk-surface-page border-t border-sk-border-soft">
-        {/* 分享解题过程 — 镂空 */}
+        {/* 绘制图像 */}
         <TouchableOpacity
-          className={`rounded-sk-sm px-sk-4 py-1.5 border ${
-            hasSolution ? 'border-sk-border-brand' : 'border-sk-border-soft'
-          }`}
-          onPress={handleShareProcess}
-          disabled={!hasSolution}
-          activeOpacity={0.7}
-        >
-          <Text className={`text-sk-xs font-semibold ${hasSolution ? 'text-brand' : 'text-sk-text-disabled'}`}>
-            分享过程
-          </Text>
-        </TouchableOpacity>
-
-        {/* 绘制图像 — 镂空 */}
-        <TouchableOpacity
-          className={`rounded-sk-sm px-sk-4 py-1.5 border ${
+          className={`flex-row items-center gap-1 rounded-sk-sm px-sk-3 py-1.5 border ${
             isPlottable ? 'border-sk-border-brand' : 'border-sk-border-soft'
           }`}
           onPress={handleViewPlot}
           disabled={!isPlottable}
           activeOpacity={0.7}
         >
+          <GeoGebraDrawIcon size={14} color={isPlottable ? '#90c208' : 'rgba(34,34,34,0.25)'} />
           <Text className={`text-sk-xs font-semibold ${isPlottable ? 'text-brand' : 'text-sk-text-disabled'}`}>
             绘制图像
           </Text>
         </TouchableOpacity>
-      </View>
 
-      {/* 输入区域 */}
-      <View className="bg-sk-surface-card border-t border-sk-border-soft px-sk-4 py-sk-3 flex-row items-end">
-        <TextInput
-          className="flex-1 bg-sk-surface-page rounded-sk-sm px-sk-3 py-2 text-sk-text-primary text-sk-sm max-h-24"
-          placeholder="输入数学问题..."
-          placeholderTextColor="rgba(34,34,34,0.25)"
-          value={input}
-          onChangeText={setInput}
-          multiline
-          editable={!isLoading}
-          returnKeyType="send"
-          onSubmitEditing={handleSend}
-          blurOnSubmit
-        />
+        {/* 分享过程 */}
         <TouchableOpacity
-          className={`ml-3 rounded-sk-sm px-sk-4 py-2 ${isLoading || !input.trim() ? 'bg-sk-border-default' : 'bg-brand'}`}
-          onPress={handleSend}
-          disabled={isLoading || !input.trim()}
+          className={`flex-row items-center gap-1 rounded-sk-sm px-sk-3 py-1.5 border ${
+            hasSolution ? 'border-sk-border-brand' : 'border-sk-border-soft'
+          }`}
+          onPress={handleShareProcess}
+          disabled={!hasSolution}
           activeOpacity={0.7}
         >
-          <Text className="text-white text-sk-sm font-semibold">发送</Text>
+          <MathLanguageIcon size={14} color={hasSolution ? '#90c208' : 'rgba(34,34,34,0.25)'} />
+          <Text className={`text-sk-xs font-semibold ${hasSolution ? 'text-brand' : 'text-sk-text-disabled'}`}>
+            分享过程
+          </Text>
         </TouchableOpacity>
+      </View>
+
+      {/* 输入区域 — 发送按钮在内部垂直居中，icon only */}
+      <View className="bg-sk-surface-card border-t border-sk-border-soft px-sk-4 py-sk-3">
+        <View className="flex-row items-center">
+          <TextInput
+            className="flex-1 bg-sk-surface-page rounded-sk-sm px-sk-3 py-2.5 text-sk-text-primary text-sk-sm"
+            placeholder="输入数学问题..."
+            placeholderTextColor="rgba(34,34,34,0.25)"
+            value={input}
+            onChangeText={setInput}
+            multiline
+            editable={!isLoading}
+            returnKeyType="send"
+            onSubmitEditing={handleSend}
+            blurOnSubmit
+          />
+          <TouchableOpacity
+            className={`ml-3 w-10 h-10 rounded-sk-sm items-center justify-center ${
+              canSend ? 'bg-brand' : 'bg-sk-border-default'
+            }`}
+            onPress={handleSend}
+            disabled={!canSend}
+            activeOpacity={0.7}
+          >
+            <PushMessageIcon size={18} color={canSend ? '#ffffff' : 'rgba(255,255,255,0.6)'} />
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
