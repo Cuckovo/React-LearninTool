@@ -1,6 +1,14 @@
-import { StyleSheet, View, ActivityIndicator, Platform, Text } from 'react-native';
-import { WebView } from 'react-native-webview';
+import {
+  StyleSheet,
+  View,
+  ActivityIndicator,
+  Platform,
+  Text,
+} from 'react-native';
+import { useRef, useEffect } from 'react';
+import { WebView, type WebView as WebViewType } from 'react-native-webview';
 import { useCallback, useState } from 'react';
+import { useAppState } from '@/lib/app-state';
 
 const GEOGEBRA_URI = Platform.OS === 'web'
   ? '/geogebra/GeoGebra.html'
@@ -9,17 +17,50 @@ const GEOGEBRA_URI = Platform.OS === 'web'
 export default function GeoGebraScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { state, dispatch } = useAppState();
+  const { plotCommand } = state;
+  const webViewRef = useRef<WebViewType>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const handleLoadEnd = useCallback(() => {
     setLoading(false);
   }, []);
 
-  // Web 端用原生 iframe + onLoad 事件
   const handleIframeLoad = useCallback(() => {
     setLoading(false);
   }, []);
 
-  // Web 端渲染
+  // 响应来自 AI 对话页面的绘图命令
+  useEffect(() => {
+    if (!plotCommand) return;
+
+    try {
+      if (Platform.OS === 'web') {
+        if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(
+            {
+              type: 'plot',
+              expression: plotCommand.expression,
+            },
+            '*'
+          );
+        }
+      } else {
+        webViewRef.current?.injectJavaScript(`
+          (function() {
+            try {
+              var expr = ${JSON.stringify(plotCommand.expression)};
+              window.postMessage({ type: 'plot', expression: expr }, '*');
+              true;
+            } catch(e) { false; }
+          })();
+        `);
+      }
+    } finally {
+      dispatch({ type: 'CLEAR_PLOT_COMMAND' });
+    }
+  }, [plotCommand, dispatch]);
+
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
@@ -29,6 +70,9 @@ export default function GeoGebraScreen() {
           </View>
         )}
         <iframe
+          ref={(el) => {
+            iframeRef.current = el;
+          }}
           src={GEOGEBRA_URI}
           onLoad={handleIframeLoad}
           style={{
@@ -42,7 +86,6 @@ export default function GeoGebraScreen() {
     );
   }
 
-  // Android 端渲染
   if (error) {
     return (
       <View style={styles.center}>
@@ -59,6 +102,7 @@ export default function GeoGebraScreen() {
         </View>
       )}
       <WebView
+        ref={webViewRef}
         source={{ uri: GEOGEBRA_URI }}
         style={styles.webview}
         javaScriptEnabled
@@ -81,7 +125,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
   webview: { flex: 1 },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',

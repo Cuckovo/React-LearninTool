@@ -1,0 +1,100 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ['./src/**/*.{js,jsx,ts,tsx}'],
+  presets: [require('nativewind/preset')],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          DEFAULT: '#90c208',
+          light: '#c8eb21',
+          50: '#f8ffe0',
+          100: '#eef7c0',
+          200: '#dcef8a',
+          300: '#c8eb21',
+          400: '#a8d210',
+          500: '#90c208',
+          600: '#729a06',
+          700: '#546f08',
+        },
+        'sk-text': {
+          primary: '#222222',
+          secondary: 'rgba(34,34,34,0.7)',
+          tertiary: 'rgba(34,34,34,0.5)',
+          disabled: 'rgba(34,34,34,0.25)',
+          inverse: '#ffffff',
+        },
+        'sk-surface': {
+          page: '#f6f6f6',
+          card: '#ffffff',
+          inverse: 'rgba(34,34,34,0.9)',
+        },
+        'sk-border': {
+          soft: 'rgba(0,0,0,0.05)',
+          DEFAULT: 'rgba(0,0,0,0.15)',
+          strong: 'rgba(0,0,0,0.35)',
+          brand: '#90c208',
+        },
+        'sk-function': {
+          success: '#90c208',
+          error: '#ff5a47',
+          warning: '#ff941a',
+          info: '#2bf',
+        },
+        'sk-text-dark': {
+          primary: '#ffffff',
+          secondary: 'rgba(255,255,255,0.7)',
+          tertiary: 'rgba(255,255,255,0.5)',
+          disabled: 'rgba(255,255,255,0.25)',
+        },
+        'sk-surface-dark': {
+          page: '#232529',
+          card: '#36383d',
+          inverse: 'rgba(255,255,255,0.9)',
+        },
+        'sk-border-dark': {
+          soft: 'rgba(255,255,255,0.05)',
+          DEFAULT: 'rgba(255,255,255,0.15)',
+          strong: 'rgba(255,255,255,0.35)',
+        },
+      },
+      fontFamily: {
+        sans: ['SF Pro', 'Noto Sans', 'Segoe UI', 'Helvetica Neue', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        display: ['Spline Sans', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        rounded: ['SF Pro Rounded', 'Hiragino Maru Gothic ProN', 'Meiryo', 'sans-serif'],
+      },
+      fontSize: {
+        'sk-xs': ['12px', { lineHeight: '16px' }],
+        'sk-sm': ['14px', { lineHeight: '20px' }],
+        'sk-md': ['16px', { lineHeight: '24px' }],
+        'sk-lg': ['18px', { lineHeight: '28px' }],
+        'sk-xl': ['24px', { lineHeight: '32px' }],
+      },
+      spacing: {
+        'sk-0.5': '2px',
+        'sk-1': '4px',
+        'sk-2': '8px',
+        'sk-3': '12px',
+        'sk-4': '16px',
+        'sk-5': '20px',
+        'sk-6': '24px',
+        'sk-8': '32px',
+        'sk-16': '64px',
+      },
+      borderRadius: {
+        'sk-sm': '8px',
+        'sk-md': '12px',
+        'sk-lg': '16px',
+        'sk-pill': '999px',
+      },
+      boxShadow: {
+        'sk-card': '0 8px 24px rgba(0,0,0,0.03)',
+        'sk-elevated': '0 4px 12px rgba(0,0,0,0.08)',
+        'sk-button': '0 1px 2px rgba(0,0,0,0.06)',
+      },
+    },
+  },
+  plugins: [],
+};

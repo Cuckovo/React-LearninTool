@@ -1,4 +1,9 @@
-/**
- * LearningTools — 全局样式
- * 预留 Tailwind + Skland 主题变量
- */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand text-white rounded-sk-sm px-sk-4 py-3 font-semibold;
+  }
+}
