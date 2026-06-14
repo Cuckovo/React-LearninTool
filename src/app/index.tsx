@@ -24,14 +24,13 @@ export default function GeoGebraScreen() {
 
     try {
       if (Platform.OS === 'web') {
-        // Web: 通过 postMessage 发送给 iframe 内的 GeoGebra
         const win = iframeRef.current?.contentWindow;
         if (win) {
-          // 直接 postMessage 字符串命令给 GeoGebra 的 iframe 消息监听器
+          // GeoGebra 内部用 window.ggbApplet 管理绘图，通过 injectScript 方式调用
+          // 由于 iframe 加载的是完整的 GeoGebra HTML，ggbApplet 在 window 作用域
           win.postMessage(JSON.stringify({ type: 'evalCommand', cmd: plotCommand.expression }), '*');
         }
       } else {
-        // Android: 通过 injectJavaScript 直接调用 GeoGebra API
         webViewRef.current?.injectJavaScript(`
           (function(){
             try {

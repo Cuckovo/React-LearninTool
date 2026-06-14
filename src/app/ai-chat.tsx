@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useState, useRef, useCallback, useMemo } from 'react';
+import { useRouter } from 'expo-router';
 import { useAppState, generateId, type ChatMessage, type ParsedAIResponse } from '@/lib/app-state';
 import { parseAIResponse } from '@/lib/ai-parser';
 import { sendChatMessage } from '@/lib/api';
@@ -61,6 +62,7 @@ export default function AIChatScreen() {
   const [input, setInput] = useState('');
   const [errorText, setErrorText] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const router = useRouter();
 
   const { isPlottable, functionExpression, hasSolution } = useLatestParsed();
   const hasMessages = messages.length > 0;
@@ -72,8 +74,9 @@ export default function AIChatScreen() {
   const handleViewPlot = useCallback(() => {
     if (!functionExpression) return;
     dispatch({ type: 'SEND_PLOT_COMMAND', payload: { expression: functionExpression, timestamp: Date.now() } });
-    dispatch({ type: 'SET_ACTIVE_TAB', payload: 'geogebra' });
-  }, [functionExpression, dispatch]);
+    // 用 router 真正的路由跳转，而不是仅改 state
+    router.navigate('/');
+  }, [functionExpression, dispatch, router]);
 
   const handleShareProcess = useCallback(() => {
     const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
