@@ -1,28 +1,29 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Modal,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Animated,
+  Dimensions, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAppState, generateId, type ChatMessage, type ParsedAIResponse } from '@/lib/app-state';
+import { useAppState, generateId, type ChatMessage, type ChatSession, type ParsedAIResponse } from '@/lib/app-state';
 import { parseAIResponse } from '@/lib/ai-parser';
 import { sendChatMessage } from '@/lib/api';
-import { GeoGebraDrawIcon, MathLanguageIcon, PushMessageIcon, HistoryIcon, XIcon, NewChatIcon } from '@/constants/icons';
+import { GeoGebraDrawIcon, MathLanguageIcon, PushMessageIcon, HistoryIcon, NewChatIcon } from '@/constants/icons';
 
-const MAX_HISTORY = 10;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const DRAWER_WIDTH = 280;
 
 /* ── 根据最新 AI 回复提取状态 ── */
-function useLatestParsed() {
-  const { state } = useAppState();
+function useLatestParsed(messages: ChatMessage[]) {
   return useMemo(() => {
-    const lastAssistant = [...state.messages].reverse().find((m) => m.role === 'assistant');
+    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
     if (!lastAssistant?.parsed?.parsed) return { isPlottable: false, functionExpression: null as string | null, hasSolution: false };
     return {
       isPlottable: lastAssistant.parsed.isPlottable,
       functionExpression: lastAssistant.parsed.functionExpression,
       hasSolution: !!(lastAssistant.parsed.solution),
     };
-  }, [state.messages]);
+  }, [messages]);
 }
 
 /* ── 对话气泡 ── */
@@ -52,74 +53,118 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-/* ── 历史对话 Modal ── */
-function HistoryModal({
+/* ── 左侧滑出历史面板 ── */
+function HistoryDrawer({
   visible,
-  messages,
+  sessions,
+  activeSessionId,
   onClose,
-  onSelect,
+  onSwitch,
+  onDelete,
+  onNew,
 }: {
   visible: boolean;
-  messages: ChatMessage[];
+  sessions: ChatSession[];
+  activeSessionId: string | null;
   onClose: () => void;
-  onSelect: (index: number) => void;
+  onSwitch: (id: string) => void;
+  onDelete: (id: string) => void;
+  onNew: () => void;
 }) {
-  // 只显示最近 MAX_HISTORY 条，按时间倒序
-  const history = useMemo(() => {
-    return [...messages]
-      .filter((m) => m.role === 'user')
-      .reverse()
-      .slice(0, MAX_HISTORY);
-  }, [messages]);
+  const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: -DRAWER_WIDTH, duration: 200, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity className="flex-1 bg-black/40 justify-end" activeOpacity={1} onPress={onClose}>
-        <View className="bg-sk-surface-card rounded-t-sk-lg max-h-[60%]">
-          <View className="flex-row justify-between items-center px-sk-4 py-sk-3 border-b border-sk-border-soft">
-            <Text className="text-sk-text-primary text-sk-md font-semibold">历史对话</Text>
-            <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
-              <XIcon size={20} color="rgba(34,34,34,0.5)" />
-            </TouchableOpacity>
-          </View>
-          {history.length === 0 ? (
+    <View className="absolute inset-0 z-50" style={{ flexDirection: 'row' }}>
+      {/* 遮罩 */}
+      <Animated.View
+        className="absolute inset-0 bg-black/40"
+        style={{ opacity: fadeAnim }}
+      >
+        <TouchableOpacity className="flex-1" activeOpacity={1} onPress={onClose} />
+      </Animated.View>
+
+      {/* 左侧面板 */}
+      <Animated.View
+        className="bg-sk-surface-card h-full shadow-sk-elevated z-10"
+        style={{ width: DRAWER_WIDTH, transform: [{ translateX: slideAnim }] }}
+      >
+        {/* 头部 */}
+        <View className="flex-row justify-between items-center px-sk-4 py-sk-3 border-b border-sk-border-soft">
+          <Text className="text-sk-text-primary text-sk-md font-semibold">历史对话</Text>
+          <TouchableOpacity onPress={onNew} activeOpacity={0.7} className="p-1">
+            <NewChatIcon size={20} color="rgba(34,34,34,0.5)" />
+          </TouchableOpacity>
+        </View>
+
+        {/* 列表 */}
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {sessions.length === 0 ? (
             <View className="py-sk-8 items-center">
               <Text className="text-sk-text-disabled text-sk-sm">暂无对话记录</Text>
+              <Text className="text-sk-text-disabled text-sk-xs mt-1">发送第一条消息开始</Text>
             </View>
           ) : (
-            <FlatList
-              data={history}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item, index }) => (
+            sessions.map((s) => {
+              const isActive = s.id === activeSessionId;
+              return (
                 <TouchableOpacity
-                  className="px-sk-4 py-sk-3 border-b border-sk-border-soft"
-                  onPress={() => { onClose(); onSelect(messages.indexOf(item)); }}
+                  key={s.id}
+                  className={`px-sk-4 py-sk-3 border-b border-sk-border-soft flex-row items-center ${isActive ? 'bg-brand/10' : ''}`}
+                  onPress={() => { onSwitch(s.id); onClose(); }}
                   activeOpacity={0.7}
+                  onLongPress={() => onDelete(s.id)}
                 >
-                  <Text className="text-sk-text-primary text-sk-sm" numberOfLines={1}>{item.content}</Text>
-                  <Text className="text-sk-text-tertiary text-sk-xs mt-1">{new Date(item.timestamp).toLocaleString('zh-CN')}</Text>
+                  <View className="flex-1 mr-2">
+                    <Text
+                      className={`text-sk-sm ${isActive ? 'text-brand font-semibold' : 'text-sk-text-primary'}`}
+                      numberOfLines={1}
+                    >
+                      {s.title || '新对话'}
+                    </Text>
+                    <Text className="text-sk-text-tertiary text-sk-xs mt-1">
+                      {s.messages.length} 条消息 · {new Date(s.updatedAt).toLocaleDateString('zh-CN')}
+                    </Text>
+                  </View>
+                  {isActive && <View className="w-2 h-2 rounded-full bg-brand" />}
                 </TouchableOpacity>
-              )}
-            />
+              );
+            })
           )}
-        </View>
-      </TouchableOpacity>
-    </Modal>
+        </ScrollView>
+      </Animated.View>
+    </View>
   );
 }
 
 /* ── 主页面 ── */
 export default function AIChatScreen() {
-  const { state, dispatch } = useAppState();
-  const { messages, isLoading } = state;
+  const { state, dispatch, currentMessages } = useAppState();
+  const { sessions, activeSessionId, isLoading } = state;
   const [input, setInput] = useState('');
   const [errorText, setErrorText] = useState<string | null>(null);
   const [historyVisible, setHistoryVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
 
-  const { isPlottable, functionExpression, hasSolution } = useLatestParsed();
-  const hasMessages = messages.length > 0;
+  const { isPlottable, functionExpression, hasSolution } = useLatestParsed(currentMessages);
+  const hasMessages = currentMessages.length > 0;
   const canSend = !!input.trim() && !isLoading;
 
   const scrollToBottom = useCallback(() => {
@@ -133,22 +178,25 @@ export default function AIChatScreen() {
   }, [functionExpression, dispatch, router]);
 
   const handleShareProcess = useCallback(() => {
-    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+    const lastAssistant = [...currentMessages].reverse().find((m) => m.role === 'assistant');
     if (!lastAssistant?.parsed?.parsed) return;
     const text = `【解题过程】\n${lastAssistant.parsed.solution}\n\n【函数表达式】\n${lastAssistant.parsed.functionExpression ?? '无'}`;
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'));
     }
-  }, [messages]);
+  }, [currentMessages]);
 
   const handleNewChat = useCallback(() => {
-    dispatch({ type: 'CLEAR_HISTORY' });
+    dispatch({ type: 'NEW_SESSION' });
   }, [dispatch]);
 
-  const handleSelectHistory = useCallback((index: number) => {
-    // 滚动到选中的对话
-    flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
-  }, []);
+  const handleSwitchSession = useCallback((id: string) => {
+    dispatch({ type: 'SWITCH_SESSION', payload: id });
+  }, [dispatch]);
+
+  const handleDeleteSession = useCallback((id: string) => {
+    dispatch({ type: 'DELETE_SESSION', payload: id });
+  }, [dispatch]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -161,8 +209,11 @@ export default function AIChatScreen() {
     dispatch({ type: 'SET_LOADING', payload: true });
     scrollToBottom();
 
+    // 需要获取最新的 messages（含刚加的 userMsg）
+    const currentForApi = [...currentMessages, userMsg];
+
     try {
-      const reply = await sendChatMessage([...messages, userMsg]);
+      const reply = await sendChatMessage(currentForApi);
       const parsed = parseAIResponse(reply);
       const aiMsg: ChatMessage = { id: generateId(), role: 'assistant', content: reply, parsed, timestamp: Date.now() };
       dispatch({ type: 'ADD_MESSAGE', payload: aiMsg });
@@ -172,7 +223,7 @@ export default function AIChatScreen() {
       dispatch({ type: 'SET_LOADING', payload: false });
       scrollToBottom();
     }
-  }, [input, isLoading, messages, dispatch, scrollToBottom]);
+  }, [input, isLoading, currentMessages, dispatch, scrollToBottom]);
 
   return (
     <KeyboardAvoidingView
@@ -191,29 +242,28 @@ export default function AIChatScreen() {
           <Text className="text-sk-text-secondary text-sk-sm">历史对话</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={handleNewChat}
-          activeOpacity={0.7}
-          className="p-1"
-        >
+        <TouchableOpacity onPress={handleNewChat} activeOpacity={0.7} className="p-1">
           <NewChatIcon size={20} color="rgba(34,34,34,0.7)" />
         </TouchableOpacity>
       </View>
 
-      {/* 历史对话 Modal */}
-      <HistoryModal
+      {/* 左侧滑出历史面板 */}
+      <HistoryDrawer
         visible={historyVisible}
-        messages={messages}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
         onClose={() => setHistoryVisible(false)}
-        onSelect={handleSelectHistory}
+        onSwitch={handleSwitchSession}
+        onDelete={handleDeleteSession}
+        onNew={() => { handleNewChat(); setHistoryVisible(false); }}
       />
 
       {/* 对话列表 */}
       {hasMessages ? (
         <FlatList
           ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
+          data={currentMessages}
+          keyExtractor={(item, index) => `${item.id}_${index}`}
           renderItem={({ item }) => <ChatBubble message={item} />}
           contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, paddingBottom: 8 }}
           onContentSizeChange={() => scrollToBottom()}
@@ -245,11 +295,8 @@ export default function AIChatScreen() {
 
       {/* 操作按钮列表 — 输入框上方，镂空 + icon */}
       <View className="flex-row justify-end gap-2 px-sk-4 py-2 bg-sk-surface-page border-t border-sk-border-soft">
-        {/* 绘制图像 */}
         <TouchableOpacity
-          className={`flex-row items-center gap-1 rounded-sk-sm px-sk-3 py-1.5 border ${
-            isPlottable ? 'border-sk-border-brand' : 'border-sk-border-soft'
-          }`}
+          className={`flex-row items-center gap-1 rounded-sk-sm px-sk-3 py-1.5 border ${isPlottable ? 'border-sk-border-brand' : 'border-sk-border-soft'}`}
           onPress={handleViewPlot}
           disabled={!isPlottable}
           activeOpacity={0.7}
@@ -258,11 +305,8 @@ export default function AIChatScreen() {
           <Text className={`text-sk-xs font-semibold ${isPlottable ? 'text-brand' : 'text-sk-text-disabled'}`}>绘制图像</Text>
         </TouchableOpacity>
 
-        {/* 分享过程 */}
         <TouchableOpacity
-          className={`flex-row items-center gap-1 rounded-sk-sm px-sk-3 py-1.5 border ${
-            hasSolution ? 'border-sk-border-brand' : 'border-sk-border-soft'
-          }`}
+          className={`flex-row items-center gap-1 rounded-sk-sm px-sk-3 py-1.5 border ${hasSolution ? 'border-sk-border-brand' : 'border-sk-border-soft'}`}
           onPress={handleShareProcess}
           disabled={!hasSolution}
           activeOpacity={0.7}
@@ -272,7 +316,7 @@ export default function AIChatScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 输入区域 — 发送按钮在内部垂直居中，icon only */}
+      {/* 输入区域 */}
       <View className="bg-sk-surface-card border-t border-sk-border-soft px-sk-4 py-sk-3">
         <View className="flex-row items-center">
           <TextInput
