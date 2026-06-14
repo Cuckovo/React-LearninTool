@@ -92,24 +92,25 @@ function HistoryDrawer({
 
   return (
     <View className="absolute inset-0 z-50" style={{ flexDirection: 'row' }}>
-      {/* 遮罩 */}
+      {/* 遮罩 + 点击关闭 */}
       <Animated.View
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/50"
         style={{ opacity: fadeAnim }}
+        pointerEvents={visible ? 'auto' : 'none'}
       >
         <TouchableOpacity className="flex-1" activeOpacity={1} onPress={onClose} />
       </Animated.View>
 
       {/* 左侧面板 */}
       <Animated.View
-        className="bg-sk-surface-card h-full shadow-sk-elevated z-10"
+        className="bg-sk-surface-card h-full shadow-2xl z-10"
         style={{ width: DRAWER_WIDTH, transform: [{ translateX: slideAnim }] }}
       >
-        {/* 头部 */}
+        {/* 头部 — 右上角关闭按钮 */}
         <View className="flex-row justify-between items-center px-sk-4 py-sk-3 border-b border-sk-border-soft">
           <Text className="text-sk-text-primary text-sk-md font-semibold">历史对话</Text>
-          <TouchableOpacity onPress={onNew} activeOpacity={0.7} className="p-1">
-            <NewChatIcon size={20} color="rgba(34,34,34,0.5)" />
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} className="p-1">
+            <NewChatIcon size={18} color="rgba(34,34,34,0.4)" style={{ transform: [{ rotate: '45deg' }] }} />
           </TouchableOpacity>
         </View>
 
