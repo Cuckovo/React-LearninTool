@@ -13,19 +13,17 @@ import { useAppState, generateId, type ChatMessage, type ParsedAIResponse } from
 import { parseAIResponse } from '@/lib/ai-parser';
 import { sendChatMessage } from '@/lib/api';
 
-/** 从最新一条 assistant 消息中提取操作按钮所需状态 */
 function useLatestParsed() {
   const { state } = useAppState();
-  const { messages } = state;
   return useMemo(() => {
-    // 倒序找第一条 assistant 消息
-    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
-    if (!lastAssistant?.parsed?.parsed) return { isPlottable: false, functionExpression: null as string | null };
+    const lastAssistant = [...state.messages].reverse().find((m) => m.role === 'assistant');
+    if (!lastAssistant?.parsed?.parsed) return { isPlottable: false, functionExpression: null as string | null, hasSolution: false };
     return {
       isPlottable: lastAssistant.parsed.isPlottable,
       functionExpression: lastAssistant.parsed.functionExpression,
+      hasSolution: !!(lastAssistant.parsed.solution),
     };
-  }, [messages]);
+  }, [state.messages]);
 }
 
 function ChatBubble({ message }: { message: ChatMessage }) {
@@ -35,9 +33,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
 
   return (
     <View className={`mb-4 ${isUser ? 'items-end' : 'items-start'}`}>
-      <Text className="text-sk-text-disabled text-sk-xs mb-1">
-        {isUser ? '你' : 'AI 助手'}
-      </Text>
+      <Text className="text-sk-text-disabled text-sk-xs mb-1">{isUser ? '你' : 'AI 助手'}</Text>
 
       {!isUser && hasSolution ? (
         <View className="bg-sk-surface-card rounded-sk-md px-sk-4 py-sk-3 max-w-[85%] border border-sk-border-soft">
@@ -51,14 +47,8 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           <Text className="text-sk-text-secondary text-sk-sm mb-3 font-mono">{parsed.functionExpression ?? '无'}</Text>
         </View>
       ) : (
-        <View
-          className={`rounded-sk-md px-sk-4 py-sk-3 max-w-[85%] ${
-            isUser ? 'bg-brand' : 'bg-sk-surface-card border border-sk-border-soft'
-          }`}
-        >
-          <Text className={`text-sk-sm ${isUser ? 'text-white' : 'text-sk-text-primary'}`}>
-            {message.content}
-          </Text>
+        <View className={`rounded-sk-md px-sk-4 py-sk-3 max-w-[85%] ${isUser ? 'bg-brand' : 'bg-sk-surface-card border border-sk-border-soft'}`}>
+          <Text className={`text-sk-sm ${isUser ? 'text-white' : 'text-sk-text-primary'}`}>{message.content}</Text>
         </View>
       )}
     </View>
@@ -72,7 +62,8 @@ export default function AIChatScreen() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  const { isPlottable, functionExpression } = useLatestParsed();
+  const { isPlottable, functionExpression, hasSolution } = useLatestParsed();
+  const hasMessages = messages.length > 0;
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -96,7 +87,6 @@ export default function AIChatScreen() {
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isLoading) return;
-
     setInput('');
     setErrorText(null);
 
@@ -118,50 +108,15 @@ export default function AIChatScreen() {
     }
   }, [input, isLoading, messages, dispatch, scrollToBottom]);
 
-  const hasMessages = messages.length > 0;
-
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-sk-surface-page"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      {/* 标题栏 + 操作按钮列表 */}
+      {/* 标题栏 */}
       <View className="bg-sk-surface-card px-sk-4 py-sk-3 border-b border-sk-border-soft">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-sk-text-primary text-sk-lg font-display font-semibold">AI 数学助手</Text>
-
-          {/* 操作按钮列表 — 水平右对齐 */}
-          <View className="flex-row gap-2">
-            {/* 分享解题过程 */}
-            <TouchableOpacity
-              className={`rounded-sk-sm px-sk-3 py-1.5 ${
-                hasMessages ? 'bg-sk-surface-page border border-sk-border' : 'bg-sk-border-soft'
-              }`}
-              onPress={handleShareProcess}
-              disabled={!hasMessages}
-              activeOpacity={0.7}
-            >
-              <Text className={`text-sk-xs font-semibold ${hasMessages ? 'text-sk-text-secondary' : 'text-sk-text-disabled'}`}>
-                分享过程
-              </Text>
-            </TouchableOpacity>
-
-            {/* 绘制图像 — 灰度/亮起取决于 isPlottable */}
-            <TouchableOpacity
-              className={`rounded-sk-sm px-sk-3 py-1.5 ${
-                isPlottable ? 'bg-brand' : 'bg-sk-border-soft'
-              }`}
-              onPress={handleViewPlot}
-              disabled={!isPlottable}
-              activeOpacity={0.7}
-            >
-              <Text className={`text-sk-xs font-semibold ${isPlottable ? 'text-white' : 'text-sk-text-disabled'}`}>
-                绘制图像
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <Text className="text-sk-text-primary text-sk-lg font-display font-semibold">AI 数学助手</Text>
       </View>
 
       {/* 对话列表 */}
@@ -198,6 +153,37 @@ export default function AIChatScreen() {
           <Text className="text-sk-function-error text-sk-xs">{errorText}</Text>
         </View>
       )}
+
+      {/* 操作按钮列表 — 输入框上方，镂空样式 */}
+      <View className="flex-row justify-end gap-2 px-sk-4 py-2 bg-sk-surface-page border-t border-sk-border-soft">
+        {/* 分享解题过程 — 镂空 */}
+        <TouchableOpacity
+          className={`rounded-sk-sm px-sk-4 py-1.5 border ${
+            hasSolution ? 'border-sk-border-brand' : 'border-sk-border-soft'
+          }`}
+          onPress={handleShareProcess}
+          disabled={!hasSolution}
+          activeOpacity={0.7}
+        >
+          <Text className={`text-sk-xs font-semibold ${hasSolution ? 'text-brand' : 'text-sk-text-disabled'}`}>
+            分享过程
+          </Text>
+        </TouchableOpacity>
+
+        {/* 绘制图像 — 镂空 */}
+        <TouchableOpacity
+          className={`rounded-sk-sm px-sk-4 py-1.5 border ${
+            isPlottable ? 'border-sk-border-brand' : 'border-sk-border-soft'
+          }`}
+          onPress={handleViewPlot}
+          disabled={!isPlottable}
+          activeOpacity={0.7}
+        >
+          <Text className={`text-sk-xs font-semibold ${isPlottable ? 'text-brand' : 'text-sk-text-disabled'}`}>
+            绘制图像
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* 输入区域 */}
       <View className="bg-sk-surface-card border-t border-sk-border-soft px-sk-4 py-sk-3 flex-row items-end">
