@@ -13,25 +13,58 @@ export default function GeoGebraScreen() {
   const { state, dispatch } = useAppState();
   const { plotCommand } = state;
   const lastTimestamp = useRef(0);
+  const webViewRef = useRef<WebView>(null);
 
-  // 监听绘图命令
+  // Android: 通过 WebView ref 的 injectJavaScript 直接调用 ggbApplet
   useEffect(() => {
+    if (Platform.OS === 'web') return; // Web 端走 iframe 方案
     if (!plotCommand || plotCommand.timestamp === lastTimestamp.current) return;
     lastTimestamp.current = plotCommand.timestamp;
 
-    // 同源直调 ggbApplet
+    try {
+      const expr = plotCommand.expression.replace(/'/g, "\\'");
+      webViewRef.current?.injectJavaScript(`
+        (function(){
+          try {
+            if (typeof ggbApplet !== 'undefined' && ggbApplet.evalCommand) {
+              ggbApplet.evalCommand('${expr}');
+            } else {
+              // ggbApplet 还没就绪，等 3 秒重试
+              setTimeout(function() {
+                if (typeof ggbApplet !== 'undefined' && ggbApplet.evalCommand) {
+                  ggbApplet.evalCommand('${expr}');
+                }
+              }, 3000);
+            }
+          } catch(e) {
+            console.log('ggbApplet error:', e);
+          }
+        })();
+        true;
+      `);
+    } catch (err) {
+      console.error('[GeoGebra] inject error:', err);
+    }
+
+    dispatch({ type: 'CLEAR_PLOT_COMMAND' });
+  }, [plotCommand, dispatch]);
+
+  // Web 端: 同源直调 ggbApplet
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (!plotCommand || plotCommand.timestamp === lastTimestamp.current) return;
+    lastTimestamp.current = plotCommand.timestamp;
+
     try {
       const iframe = (window as any).__geogebraIframe as HTMLIFrameElement | undefined;
       const win = iframe?.contentWindow;
       const ggb = win ? (win as any).ggbApplet : undefined;
       if (ggb?.evalCommand) {
         ggb.evalCommand(plotCommand.expression);
-        console.log('[GeoGebra] evalCommand:', plotCommand.expression);
       } else {
-        console.warn('[GeoGebra] ggbApplet not ready, will retry');
-        // 5 秒后重试
+        console.warn('[GeoGebra] ggbApplet not ready, retry in 5s');
         setTimeout(() => {
-          const retryGgb = (win as any).ggbApplet;
+          const retryGgb = win ? (win as any).ggbApplet : undefined;
           if (retryGgb?.evalCommand) {
             retryGgb.evalCommand(plotCommand.expression);
           }
@@ -44,16 +77,8 @@ export default function GeoGebraScreen() {
     dispatch({ type: 'CLEAR_PLOT_COMMAND' });
   }, [plotCommand, dispatch]);
 
-  const handleIframeLoad = useCallback(() => {
-    setLoading(false);
-    console.log('[GeoGebra] iframe loaded');
-    // 给 GeoGebra 足够的初始化时间
-    setTimeout(() => {
-      const iframe = (window as any).__geogebraIframe as HTMLIFrameElement | undefined;
-      const ggb = iframe?.contentWindow ? (iframe.contentWindow as any).ggbApplet : undefined;
-      console.log('[GeoGebra] ggbApplet available:', !!ggb);
-    }, 3000);
-  }, []);
+  const handleIframeLoad = useCallback(() => setLoading(false), []);
+  const handleWebViewLoad = useCallback(() => setLoading(false), []);
 
   if (Platform.OS === 'web') {
     return (
@@ -91,10 +116,11 @@ export default function GeoGebraScreen() {
         </View>
       )}
       <WebView
+        ref={webViewRef}
         source={{ uri: GEOGEBRA_URI }}
         className="flex-1"
         javaScriptEnabled domStorageEnabled allowFileAccess allowUniversalAccessFromFileURLs allowFileAccessFromFileURLs
-        onLoadEnd={() => setLoading(false)}
+        onLoadEnd={handleWebViewLoad}
         onError={(e) => setError(e.nativeEvent.description)}
         originWhitelist={['*']}
       />
