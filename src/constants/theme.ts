@@ -1,65 +1,37 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * LearningTools — Skland 设计 Token（暂存，后续改为 Tailwind 配置）
  */
 
-import '@/global.css';
-
-import { Platform } from 'react-native';
-
 export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+  /** 品牌色 */
+  brand: {
+    primary: '#90c208',
+    light: '#c8eb21',
   },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+  /** 文本色 */
+  text: {
+    primary: '#222222',
+    secondary: 'rgba(34, 34, 34, 0.7)',
+    tertiary: 'rgba(34, 34, 34, 0.5)',
+    disabled: 'rgba(34, 34, 34, 0.25)',
+    inverse: '#ffffff',
+  },
+  /** 表面色 */
+  surface: {
+    page: '#f6f6f6',
+    card: '#ffffff',
+  },
+  /** 边框色 */
+  border: {
+    soft: 'rgba(0, 0, 0, 0.05)',
+    default: 'rgba(0, 0, 0, 0.15)',
+    brand: '#90c208',
+  },
+  /** 功能色 */
+  function: {
+    success: '#90c208',
+    error: '#ff5a47',
+    warning: '#ff941a',
+    info: '#2bf',
   },
 } as const;
-
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
-
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
-
-export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
-} as const;
-
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
