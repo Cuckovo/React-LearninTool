@@ -39,6 +39,11 @@ yarn-error.*
 
 example
 
+# misc
+.workbuddy/
+log.txt
+nul
+
 # GeoGebra dev copy (from assets/, not versioned)
 /public/geogebra/
 
