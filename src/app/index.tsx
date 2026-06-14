@@ -2,6 +2,7 @@ import { View, ActivityIndicator, Platform, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useAppState } from '@/lib/app-state';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const GEOGEBRA_URI = Platform.OS === 'web'
   ? '/geogebra/GeoGebra.html'
@@ -102,14 +103,14 @@ export default function GeoGebraScreen() {
   // Android
   if (error) {
     return (
-      <View className="flex-1 justify-center items-center bg-white">
+      <SafeAreaView className="flex-1 justify-center items-center bg-white">
         <Text className="text-sk-function-error text-sk-md">加载失败: {error}</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white">
       {loading && (
         <View className="absolute inset-0 justify-center items-center bg-white z-10">
           <ActivityIndicator size="large" color="#90c208" />
@@ -124,6 +125,6 @@ export default function GeoGebraScreen() {
         onError={(e) => setError(e.nativeEvent.description)}
         originWhitelist={['*']}
       />
-    </View>
+    </SafeAreaView>
   );
 }

@@ -4,6 +4,7 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Animated,
   Dimensions, ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAppState, generateId, type ChatMessage, type ChatSession, type ParsedAIResponse } from '@/lib/app-state';
 import { parseAIResponse } from '@/lib/ai-parser';
@@ -231,11 +232,12 @@ export default function AIChatScreen() {
   }, [input, isLoading, currentMessages, dispatch, scrollToBottom]);
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-sk-surface-page"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
+    <SafeAreaView className="flex-1 bg-sk-surface-page">
+      <KeyboardAvoidingView
+        className="flex-1 bg-sk-surface-page"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
       {/* 标题栏：左侧历史按钮 + 右侧新建会话 */}
       <View className="bg-sk-surface-card px-sk-4 py-sk-3 border-b border-sk-border-soft flex-row justify-between items-center">
         <TouchableOpacity
@@ -347,5 +349,6 @@ export default function AIChatScreen() {
         </View>
       </View>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

@@ -4,6 +4,7 @@ import { AppStateProvider } from "@/lib/app-state";
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 function MoreTabIcon({ color }: { color: string }) {
     return (
@@ -15,8 +16,9 @@ function MoreTabIcon({ color }: { color: string }) {
 
 export default function RootLayout() {
     return (
-        <AppStateProvider>
-            <StatusBar style="dark" />
+        <SafeAreaProvider>
+            <AppStateProvider>
+                <StatusBar style="dark" />
             <Tabs
                 screenOptions={{
                     headerShown: false,
@@ -57,6 +59,7 @@ export default function RootLayout() {
                     }}
                 />
             </Tabs>
-        </AppStateProvider>
+            </AppStateProvider>
+        </SafeAreaProvider>
     );
 }
