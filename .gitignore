@@ -44,7 +44,8 @@ example
 log.txt
 nul
 
-# GeoGebra dev copy (from assets/, not versioned)
+# GeoGebra offline bundle (too large, 48MB — not versioned)
+/assets/geogebra/
 /public/geogebra/
 
 # generated native folders
