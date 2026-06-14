@@ -103,8 +103,12 @@ function HistoryDrawer({
 
       {/* 左侧面板 */}
       <Animated.View
-        className="bg-sk-surface-card h-full shadow-2xl z-10"
-        style={{ width: DRAWER_WIDTH, transform: [{ translateX: slideAnim }] }}
+        className="h-full shadow-2xl z-10"
+        style={{
+          width: DRAWER_WIDTH,
+          transform: [{ translateX: slideAnim }],
+          backgroundColor: '#ffffff',
+        }}
       >
         {/* 头部 — 右上角关闭按钮 */}
         <View className="flex-row justify-between items-center px-sk-4 py-sk-3 border-b border-sk-border-soft">
