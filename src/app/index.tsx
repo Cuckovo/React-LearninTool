@@ -1,28 +1,32 @@
 import { StyleSheet, View, ActivityIndicator, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 
 /** GeoGebra 入口 HTML 相对路径 */
 const GEOGEBRA_ENTRY = 'geogebra/GeoGebra.html';
 
-function getGeogebraUri(): string {
-  if (Platform.OS === 'web') {
-    // Web 端：直接请求 assets 下的静态文件
-    return `/${GEOGEBRA_ENTRY}`;
-  }
-  // Android：从 APK assets 加载
-  return `file:///android_asset/${GEOGEBRA_ENTRY}`;
-}
-
 export default function GeoGebraScreen() {
   const [loading, setLoading] = useState(true);
+  const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const webViewRef = useRef<WebView>(null);
+
+  useEffect(() => {
+    // Web 开发模式：fetch GeoGebra HTML 内联注入
+    // Metro 不直接 serve assets/，所以从 public/ 抓取
+    if (Platform.OS === 'web') {
+      fetch(`/${GEOGEBRA_ENTRY}`)
+        .then((res) => res.text())
+        .then((html) => setHtmlContent(html))
+        .catch((err) => {
+          console.error('[GeoGebra] HTML fetch 失败:', err);
+          setLoading(false);
+        });
+    }
+  }, []);
 
   const handleLoadEnd = useCallback(() => {
     setLoading(false);
   }, []);
-
-  const sourceUri = getGeogebraUri();
 
   return (
     <View style={styles.container}>
@@ -31,19 +35,32 @@ export default function GeoGebraScreen() {
           <ActivityIndicator size="large" color="#90c208" />
         </View>
       )}
-      <WebView
-        ref={webViewRef}
-        source={{ uri: sourceUri }}
-        style={styles.webview}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        allowFileAccess={true}
-        allowUniversalAccessFromFileURLs={true}
-        allowFileAccessFromFileURLs={true}
-        mixedContentMode="always"
-        onLoadEnd={handleLoadEnd}
-        originWhitelist={['*']}
-      />
+      {Platform.OS === 'web' && htmlContent ? (
+        <WebView
+          ref={webViewRef}
+          source={{
+            html: htmlContent,
+            baseUrl: `${window.location.origin}/geogebra/`,
+          }}
+          style={styles.webview}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          onLoadEnd={handleLoadEnd}
+          originWhitelist={['*']}
+        />
+      ) : (
+        <WebView
+          ref={webViewRef}
+          source={{ uri: `file:///android_asset/${GEOGEBRA_ENTRY}` }}
+          style={styles.webview}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          allowFileAccess={true}
+          allowUniversalAccessFromFileURLs={true}
+          onLoadEnd={handleLoadEnd}
+          originWhitelist={['*']}
+        />
+      )}
     </View>
   );
 }
