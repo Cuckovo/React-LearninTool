@@ -1,41 +1,25 @@
 import { StyleSheet, View, ActivityIndicator, Platform, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 const GEOGEBRA_URI = Platform.OS === 'web'
   ? '/geogebra/GeoGebra.html'
   : 'file:///android_asset/geogebra/GeoGebra.html';
-
-/**
- * Web 端用原生 <iframe>，绕过 react-native-webview 在 Web 端的 iframe 限制
- */
-function GeogebraIframe() {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  return (
-    <iframe
-      ref={iframeRef}
-      src={GEOGEBRA_URI}
-      style={{
-        width: '100%',
-        height: '100%',
-        border: 'none',
-        flex: 1,
-      }}
-      title="GeoGebra"
-      sandbox="allow-scripts allow-same-origin allow-forms"
-    />
-  );
-}
 
 export default function GeoGebraScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const handleLoadEnd = useCallback(() => {
-    setTimeout(() => setLoading(false), 500);
+    setLoading(false);
   }, []);
 
+  // Web 端用原生 iframe + onLoad 事件
+  const handleIframeLoad = useCallback(() => {
+    setLoading(false);
+  }, []);
+
+  // Web 端渲染
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
@@ -44,14 +28,25 @@ export default function GeoGebraScreen() {
             <ActivityIndicator size="large" color="#90c208" />
           </View>
         )}
-        <GeogebraIframe />
-        {/* 用隐藏 WebView 仅用于监听 load */}
-        <WebView
-          source={{ uri: GEOGEBRA_URI }}
-          style={{ height: 0, width: 0, position: 'absolute', opacity: 0 }}
-          onLoadEnd={handleLoadEnd}
-          originWhitelist={['*']}
+        <iframe
+          src={GEOGEBRA_URI}
+          onLoad={handleIframeLoad}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+          }}
+          title="GeoGebra"
         />
+      </View>
+    );
+  }
+
+  // Android 端渲染
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.errorText}>加载失败: {error}</Text>
       </View>
     );
   }
@@ -73,7 +68,6 @@ export default function GeoGebraScreen() {
         allowFileAccessFromFileURLs
         onLoadEnd={handleLoadEnd}
         onError={(e) => {
-          console.error('[GeoGebra] error:', e.nativeEvent);
           setError(e.nativeEvent.description);
         }}
         originWhitelist={['*']}
@@ -84,6 +78,7 @@ export default function GeoGebraScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
   webview: { flex: 1 },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -92,4 +87,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     zIndex: 10,
   },
+  errorText: { color: '#ff5a47', fontSize: 16 },
 });
