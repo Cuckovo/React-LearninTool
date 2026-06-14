@@ -120,6 +120,44 @@ export function PushMessageIcon({ size = 20, color = 'currentColor', ...props }:
 }
 
 /* ================================================================
+   History 图标 — 历史对话菜单
+   ================================================================ */
+export function HistoryIcon({ size = 24, color = '#666', ...props }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+      <Path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M2 6a1 1 0 0 1 1-1h18a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 6a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 6a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+/* ================================================================
+   X 图标 — 关闭按钮（占位符）
+   ================================================================ */
+export function XIcon({ size = 20, color = '#666', ...props }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none" {...props}>
+      <Path d="M15 5 5 15M5 5l10 10" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/* ================================================================
+   NewChat 图标 — 新建会话按钮（占位符）
+   ================================================================ */
+export function NewChatIcon({ size = 20, color = '#666', ...props }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none" {...props}>
+      <Path d="M10 3v14M3 10h14" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/* ================================================================
    AI Sparkle 图标 — 用于 AI 对话 Tab
    ================================================================ */
 export function AISparkleIcon({ size = 24, color = '#666', ...props }: IconProps) {

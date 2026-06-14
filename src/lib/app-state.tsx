@@ -34,7 +34,8 @@ type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SEND_PLOT_COMMAND'; payload: GeogebraPlotCommand }
   | { type: 'CLEAR_PLOT_COMMAND' }
-  | { type: 'SET_ACTIVE_TAB'; payload: AppState['activeTab'] };
+  | { type: 'SET_ACTIVE_TAB'; payload: AppState['activeTab'] }
+  | { type: 'CLEAR_HISTORY' };
 
 const initialState: AppState = {
   messages: [],
@@ -55,6 +56,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, plotCommand: null };
     case 'SET_ACTIVE_TAB':
       return { ...state, activeTab: action.payload };
+    case 'CLEAR_HISTORY':
+      return { ...state, messages: [] };
     default:
       return state;
   }
