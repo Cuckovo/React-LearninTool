@@ -1,10 +1,15 @@
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { AppStateProvider } from '@/lib/app-state';
+import '@/global.css';
 
-function TabIcon({ label, emoji }: { label: string; emoji: string }) {
-  return <Text style={{ fontSize: 20 }}>{emoji}</Text>;
+function TabIcon({ emoji }: { label: string; emoji: string }) {
+  return (
+    <View className="justify-center items-center">
+      <Text className="text-xl">{emoji}</Text>
+    </View>
+  );
 }
 
 export default function RootLayout() {
