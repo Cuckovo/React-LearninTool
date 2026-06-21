@@ -8,6 +8,7 @@ import {
   deleteSession as deleteSessionFromDb,
   addMessage,
 } from '@/db/repository';
+import type { ChatMode, SessionType } from '@/types/knowledge';
 
 export interface ParsedAIResponse {
   solution: string;
@@ -29,6 +30,7 @@ export interface ChatMessage {
 export interface ChatSession {
   id: string;
   title: string;
+  type: SessionType;
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
@@ -39,13 +41,24 @@ export interface GeogebraPlotCommand {
   timestamp: number;
 }
 
+export interface KnowledgeSessionPayload {
+  nodeId: string;
+  nodeLabel: string;
+  standardDefinition: string | null;
+  timestamp: number;
+}
+
 export interface AppState {
   sessions: ChatSession[];
   activeSessionId: string | null;
   isLoading: boolean;
   plotCommand: GeogebraPlotCommand | null;
-  activeTab: 'geogebra' | 'ai-chat' | 'more';
+  activeTab: 'geogebra' | 'ai-chat' | 'knowledge';
   loaded: boolean;
+  /** 当前对话模式 */
+  activeChatMode: ChatMode;
+  /** 当前学习节点 ID（知识库模式） */
+  activeKnowledgeNodeId: string | null;
 }
 
 type AppAction =
@@ -57,7 +70,10 @@ type AppAction =
   | { type: 'NEW_SESSION' }
   | { type: 'SWITCH_SESSION'; payload: string }
   | { type: 'DELETE_SESSION'; payload: string }
-  | { type: 'LOAD_SESSIONS'; payload: ChatSession[] };
+  | { type: 'LOAD_SESSIONS'; payload: ChatSession[] }
+  | { type: 'SET_CHAT_MODE'; payload: ChatMode }
+  | { type: 'SET_KNOWLEDGE_NODE'; payload: string | null }
+  | { type: 'CREATE_KNOWLEDGE_SESSION'; payload: KnowledgeSessionPayload };
 
 const MAX_SESSIONS = 10;
 
@@ -68,6 +84,8 @@ const initialState: AppState = {
   plotCommand: null,
   activeTab: 'geogebra',
   loaded: false,
+  activeChatMode: 'solver',
+  activeKnowledgeNodeId: null,
 };
 
 function getCurrentMessages(state: AppState): ChatMessage[] {
@@ -91,9 +109,11 @@ function appReducer(state: AppState, action: AppAction): AppState {
         // 首次发消息时自动创建 session
         sid = generateId();
         const title = action.payload.role === 'user' ? action.payload.content.slice(0, 20) : '新对话';
+        const sessionType: SessionType = state.activeChatMode === 'knowledge' ? 'knowledge' : 'solver';
         const newSession: ChatSession = {
           id: sid,
           title,
+          type: sessionType,
           messages: [action.payload],
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -125,9 +145,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_ACTIVE_TAB':
       return { ...state, activeTab: action.payload };
     case 'NEW_SESSION':
-      return { ...state, activeSessionId: null };
-    case 'SWITCH_SESSION':
-      return { ...state, activeSessionId: action.payload };
+      return { ...state, activeSessionId: null, activeChatMode: 'solver', activeKnowledgeNodeId: null };
+    case 'SWITCH_SESSION': {
+      // 切换会话时根据 session.type 设置 chatMode
+      const targetSession = state.sessions.find((s) => s.id === action.payload);
+      const mode: ChatMode = targetSession?.type === 'knowledge' ? 'knowledge' : 'solver';
+      return { ...state, activeSessionId: action.payload, activeChatMode: mode };
+    }
     case 'DELETE_SESSION': {
       const filtered = state.sessions.filter((s) => s.id !== action.payload);
       // 持久化：删除会话
@@ -142,6 +166,58 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'LOAD_SESSIONS':
       return { ...state, sessions: action.payload, loaded: true };
+    case 'SET_CHAT_MODE': {
+      const newMode = action.payload;
+      // 切换模式时新建对应 type 的 session
+      const newSessionId = generateId();
+      const title = newMode === 'knowledge' ? '知识库学习' : '新对话';
+      const sessionType: SessionType = newMode === 'knowledge' ? 'knowledge' : 'solver';
+      const newSession: ChatSession = {
+        id: newSessionId,
+        title,
+        type: sessionType,
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const sessions = [newSession, ...state.sessions].slice(0, MAX_SESSIONS);
+      persistCreateSession(newSession).catch((err) =>
+        dbLog.error('创建会话持久化失败', err),
+      );
+      return {
+        ...state,
+        sessions,
+        activeSessionId: newSessionId,
+        activeChatMode: newMode,
+        activeKnowledgeNodeId: newMode === 'knowledge' ? state.activeKnowledgeNodeId : null,
+      };
+    }
+    case 'SET_KNOWLEDGE_NODE':
+      return { ...state, activeKnowledgeNodeId: action.payload };
+    case 'CREATE_KNOWLEDGE_SESSION': {
+      const { nodeId, nodeLabel, standardDefinition } = action.payload;
+      const newSessionId = generateId();
+      const title = `学习: ${nodeLabel}`;
+      const newSession: ChatSession = {
+        id: newSessionId,
+        title,
+        type: 'knowledge',
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const sessions = [newSession, ...state.sessions].slice(0, MAX_SESSIONS);
+      persistCreateSession(newSession).catch((err) =>
+        dbLog.error('创建知识库会话持久化失败', err),
+      );
+      return {
+        ...state,
+        sessions,
+        activeSessionId: newSessionId,
+        activeChatMode: 'knowledge',
+        activeKnowledgeNodeId: nodeId,
+      };
+    }
     default:
       return state;
   }

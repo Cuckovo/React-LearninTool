@@ -6,10 +6,10 @@ import { StatusBar } from "expo-status-bar";
 import { Text, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-function MoreTabIcon({ color }: { color: string }) {
+function KnowledgeTabIcon({ color }: { color: string }) {
     return (
         <View className="items-center justify-center">
-            <Text className="text-xl">📦</Text>
+            <Text className="text-xl">📚</Text>
         </View>
     );
 }
@@ -50,11 +50,11 @@ export default function RootLayout() {
                     }}
                 />
                 <Tabs.Screen
-                    name="more"
+                    name="knowledge"
                     options={{
-                        title: "更多",
+                        title: "知识库",
                         tabBarIcon: ({ color }) => (
-                            <MoreTabIcon color={String(color)} />
+                            <KnowledgeTabIcon color={String(color)} />
                         ),
                     }}
                 />
