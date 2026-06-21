@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useReducer, useEffect, type Dispatch } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { getExpoDb } from '@/db/database';
+import { dbLog } from '@/db/logger';
+import { migrateFromAsyncStorage } from '@/db/migrate';
+import {
+  getAllSessions,
+  createSession,
+  deleteSession as deleteSessionFromDb,
+  addMessage,
+} from '@/db/repository';
 
 export interface ParsedAIResponse {
   solution: string;
@@ -52,7 +59,6 @@ type AppAction =
   | { type: 'DELETE_SESSION'; payload: string }
   | { type: 'LOAD_SESSIONS'; payload: ChatSession[] };
 
-const STORAGE_KEY = '@learntools_sessions';
 const MAX_SESSIONS = 10;
 
 const initialState: AppState = {
@@ -93,12 +99,20 @@ function appReducer(state: AppState, action: AppAction): AppState {
           updatedAt: Date.now(),
         };
         sessions = [newSession, ...state.sessions].slice(0, MAX_SESSIONS);
+        // 持久化：创建新会话并添加首条消息
+        persistCreateSession(newSession).catch((err) =>
+          dbLog.error('创建会话持久化失败', err),
+        );
       } else {
         sessions = updateSession(
           { ...state, sessions, activeSessionId: sid },
           sid,
           (s) => ({ ...s, messages: [...s.messages, action.payload], updatedAt: Date.now(), title: s.title })
         ).sessions;
+        // 持久化：添加消息到已有会话
+        persistAddMessage(action.payload, sid).catch((err) =>
+          dbLog.error('添加消息持久化失败', err),
+        );
       }
       return { ...state, sessions, activeSessionId: sid };
     }
@@ -116,6 +130,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, activeSessionId: action.payload };
     case 'DELETE_SESSION': {
       const filtered = state.sessions.filter((s) => s.id !== action.payload);
+      // 持久化：删除会话
+      persistDeleteSession(action.payload).catch((err) =>
+        dbLog.error('删除会话持久化失败', err),
+      );
       return {
         ...state,
         sessions: filtered,
@@ -129,6 +147,32 @@ function appReducer(state: AppState, action: AppAction): AppState {
   }
 }
 
+// ── 持久化辅助函数（fire-and-forget） ──
+
+  async function persistCreateSession(session: ChatSession): Promise<void> {
+    try {
+      await createSession(session);
+    } catch (err) {
+      dbLog.error('persistCreateSession 异常', err);
+    }
+  }
+
+  async function persistAddMessage(message: ChatMessage, sessionId: string): Promise<void> {
+    try {
+      await addMessage(message, sessionId);
+    } catch (err) {
+      dbLog.error('persistAddMessage 异常', err);
+    }
+  }
+
+  async function persistDeleteSession(id: string): Promise<void> {
+    try {
+      await deleteSessionFromDb(id);
+    } catch (err) {
+      dbLog.error('persistDeleteSession 异常', err);
+    }
+  }
+
 const AppContext = createContext<{
   state: AppState;
   dispatch: Dispatch<AppAction>;
@@ -138,28 +182,24 @@ const AppContext = createContext<{
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // 启动时从 AsyncStorage 恢复
+  // 启动时：先初始化数据库，再执行数据迁移，最后从 SQLite 加载数据
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const sessions: ChatSession[] = JSON.parse(raw);
-          dispatch({ type: 'LOAD_SESSIONS', payload: sessions });
-        } else {
-          dispatch({ type: 'LOAD_SESSIONS', payload: [] });
-        }
-      } catch {
+        // 0. 懒初始化数据库连接（Web 端需要异步上下文）
+        await getExpoDb();
+        // 1. 尝试从 AsyncStorage 迁移旧数据（幂等）
+        await migrateFromAsyncStorage();
+        // 2. 从 SQLite 加载所有会话
+        const sessions: ChatSession[] = await getAllSessions();
+        dbLog.info(`加载 ${sessions.length} 个会话`);
+        dispatch({ type: 'LOAD_SESSIONS', payload: sessions });
+      } catch (err) {
+        dbLog.error('加载会话失败', err);
         dispatch({ type: 'LOAD_SESSIONS', payload: [] });
       }
     })();
   }, []);
-
-  // sessions 变更时持久化
-  useEffect(() => {
-    if (!state.loaded) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state.sessions)).catch(() => {});
-  }, [state.sessions, state.loaded]);
 
   const currentMessages = getCurrentMessages(state);
 
