@@ -112,9 +112,9 @@ function renderLatex(text: string): string {
     tokens.push({ type: 'text', content: text.slice(lastIndex) });
   }
 
-  // 如果没有找到任何公式，直接返回转义后的文本
+  // 如果没有找到任何公式，直接返回原始 HTML（由 renderMarkdown 生成，不含用户输入的裸 HTML，安全）
   if (tokens.every((t) => t.type === 'text')) {
-    return escapeHtml(text);
+    return text;
   }
 
   // 渲染所有 token 为 HTML
@@ -227,7 +227,7 @@ function RenderContent({ content, isWeb }: { content: string; isWeb: boolean }) 
   if (isWeb) {
     const html = renderContent(content);
     return (
-      <span
+      <div
         className="text-sk-sm text-sk-text-primary katex-content"
         dangerouslySetInnerHTML={{ __html: html }}
       />
