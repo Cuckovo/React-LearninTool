@@ -1,0 +1,62 @@
+sequenceDiagram
+    actor User
+    participant KnowledgePage as knowledge.tsx<br/>(DetailPage)
+    participant AppState as app-state.tsx<br/>(useReducer)
+    participant Repo as repository.ts
+    participant AIChat as ai-chat.tsx
+    participant API as api.ts<br/>(DeepSeek)
+    participant CmdParser as db-command-parser.ts
+    participant KService as knowledge-service.ts
+    participant SQLite as expo-sqlite
+
+    Note over User,SQLite: ═══ 第一步：用户从知识库 Tab 点击"去学习" ═══
+
+    User->>KnowledgePage: 点击「去学习这个知识点」
+    KnowledgePage->>AppState: dispatch({ type: 'CREATE_KNOWLEDGE_SESSION',<br/>nodeId: 'kn-1.1.1', nodeLabel: '1.1.1 映射',<br/>standardDef: '设X、Y是两个...' })
+    AppState->>AppState: reducer: generateId() → newSessionId<br/>构建 session { type: 'knowledge', title: '学习: 1.1.1 映射' }
+    AppState->>Repo: persistCreateSession(session)
+    Repo->>SQLite: INSERT INTO sessions (..., type='knowledge')
+    AppState->>AppState: set activeSessionId = newSessionId<br/>set activeKnowledgeNodeId = 'kn-1.1.1'<br/>set activeChatMode = 'knowledge'
+    AppState->>KnowledgePage: router.navigate('/ai-chat')
+
+    Note over User,SQLite: ═══ 第二步：用户发送第一条消息（AI 教学对话） ═══
+
+    User->>AIChat: 输入「映射是什么？」
+    AIChat->>AppState: dispatch ADD_MESSAGE (role: user)
+    AIChat->>API: sendChatMessage(messages, { mode: 'knowledge',<br/>nodeContext: { label, standardDef, masteryStatus } })
+    API->>API: 构建 system prompt:<br/>知识库助手统合提示词 + 节点上下文注入
+    API->>API: fetch DeepSeek /chat/completions
+    API-->>AIChat: AI 回复（自然语言教学）
+    AIChat->>CmdParser: extractDBCommands(reply)
+    CmdParser-->>AIChat: [] (教学阶段无 DB 指令)
+    AIChat->>AIChat: 过滤 db 代码块 → 展示给用户
+    AIChat->>AppState: dispatch ADD_MESSAGE (role: assistant)
+
+    Note over User,SQLite: ═══ 第三步：考核阶段 ═══
+
+    User->>AIChat: 「考考我」
+    AIChat->>API: sendChatMessage(messages, mode: 'knowledge')
+    API-->>AIChat: AI 出题（2-3 道概念题）
+    AIChat->>AppState: dispatch ADD_MESSAGE (assistant: 题目)
+    User->>AIChat: 输入回答
+    AIChat->>API: sendAssessment(standardDef, questions, answers)
+    API->>API: 使用考核评分 system prompt<br/>构建评分请求
+    API->>API: fetch DeepSeek (第二轮)
+    API-->>AIChat: { score: 85, passed: true,<br/>suggestedUserNote: "..." }
+    AIChat->>AIChat: 渲染 AssessmentResultCard<br/>(百分比 + 解析 + 薄弱点)
+
+    Note over User,SQLite: ═══ 第四步：笔记沉淀 ═══
+
+    AIChat->>AIChat: 展示 suggestedUserNote
+    AIChat->>User: 「我帮你这样记，可以吗？」
+    User->>AIChat: 「可以」
+    AIChat->>API: sendChatMessage (追加确认)
+    API-->>AIChat: AI 回复 (含 ```db 指令块)
+    AIChat->>CmdParser: extractDBCommands(reply)
+    CmdParser-->>AIChat: [{ action: 'set_user_notes',<br/>nodeId: 'kn-1.1.1', value: '...' }]
+    AIChat->>KService: execute setUserNotes('kn-1.1.1', note)
+    KService->>SQLite: UPDATE knowledge_nodes SET user_notes = ?
+    AIChat->>KService: execute setMastery('kn-1.1.1', 'passed')
+    KService->>SQLite: UPDATE knowledge_nodes SET mastery_status = 'passed'
+    AIChat->>AIChat: 过滤 db 代码块 → 展示"已保存 ✓"
+    AIChat->>AppState: dispatch ADD_MESSAGE (assistant: 确认消息)

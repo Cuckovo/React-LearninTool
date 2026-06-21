@@ -1,0 +1,168 @@
+classDiagram
+    direction TB
+
+    class Session {
+        +string id PK
+        +string title
+        +SessionType type
+        +number createdAt
+        +number updatedAt
+    }
+
+    class Message {
+        +string id PK
+        +string sessionId FK
+        +MessageRole role
+        +string content
+        +string solution
+        +number isPlottable
+        +string functionExpression
+        +string raw
+        +number parsed
+        +string parseError
+        +number timestamp
+    }
+
+    class KnowledgeNode {
+        +string id PK
+        +string parentId FK?
+        +NodeType type
+        +string label
+        +string standardDefinition?
+        +string userNotes?
+        +MasteryStatus masteryStatus
+        +string metadata?
+        +number sortOrder
+        +number createdAt
+        +number updatedAt
+    }
+
+    class AgentLog {
+        +string id PK
+        +string sessionId
+        +string action
+        +string target?
+        +string payload?
+        +number timestamp
+    }
+
+    class TreeNode {
+        +KnowledgeNode node
+        +TreeNode[] children
+    }
+
+    class ProgressStats {
+        +number totalLeafNodes
+        +number passed
+        +number learning
+        +number notStarted
+        +number percentage
+    }
+
+    class ChatSession {
+        +string id
+        +string title
+        +SessionType type
+        +ChatMessage[] messages
+        +number createdAt
+        +number updatedAt
+    }
+
+    class ChatMessage {
+        +string id
+        +MessageRole role
+        +string content
+        +ParsedAIResponse parsed?
+        +number timestamp
+    }
+
+    class AppState {
+        +ChatSession[] sessions
+        +string activeSessionId
+        +boolean isLoading
+        +GeogebraPlotCommand plotCommand
+        +TabName activeTab
+        +boolean loaded
+        +ChatMode activeChatMode
+        +string activeKnowledgeNodeId
+    }
+
+    class KnowledgeService {
+        +seedOutline(label, chapters) Promise~void~
+        +getTree(parentId?) Promise~KnowledgeNode[]~
+        +getFullTree() Promise~TreeNode[]~
+        +getNodePath(nodeId) Promise~KnowledgeNode[]~
+        +getChildrenOf(parentId) Promise~KnowledgeNode[]~
+        +getNode(id) Promise~KnowledgeNode~
+        +setUserNotes(id, notes) Promise~void~
+        +setStandardDefinition(id, def) Promise~void~
+        +updateMastery(id, status) Promise~void~
+        +getProgress(subjectId) Promise~ProgressStats~
+        +logAgentAction(log) Promise~void~
+        +initializeDemoData() Promise~void~
+    }
+
+    class DBCommand {
+        +string action
+        +string nodeId
+        +string value?
+        +string parentId?
+    }
+
+    class AssessmentResult {
+        +number score
+        +string analysis
+        +string[] weakPoints
+        +boolean passed
+        +string suggestedUserNote
+    }
+
+    class ModeSwitcherProps {
+        +ChatMode currentMode
+        +onSwitch(mode) void
+        +boolean disabled
+    }
+
+    Session "1" -- "N" Message : has
+    KnowledgeNode "1" -- "N" KnowledgeNode : parent → children
+    KnowledgeService --> KnowledgeNode : manages
+    KnowledgeService --> AgentLog : writes
+    KnowledgeService --> ProgressStats : computes
+    AppState --> ChatSession : contains
+    AppState --> ChatMode : tracks
+    ChatSession --> ChatMessage : contains
+    DBCommand --> KnowledgeService : executed by
+    AssessmentResult --> KnowledgeService : feeds into
+
+    class SessionType {
+        <<enumeration>>
+        solver
+        knowledge
+    }
+
+    class NodeType {
+        <<enumeration>>
+        subject
+        chapter
+        section
+        concept
+    }
+
+    class MasteryStatus {
+        <<enumeration>>
+        not_started
+        learning
+        passed
+        mastered
+    }
+
+    class ChatMode {
+        <<enumeration>>
+        solver
+        knowledge
+    }
+
+    SessionType .. Session : use
+    NodeType .. KnowledgeNode : use
+    MasteryStatus .. KnowledgeNode : use
+    ChatMode .. AppState : use
