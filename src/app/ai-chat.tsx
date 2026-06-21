@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import katex from 'katex';
 import { useAppState, generateId, type ChatMessage, type ChatSession, type ParsedAIResponse } from '@/lib/app-state';
 import { parseAIResponse, filterDBCommands } from '@/lib/ai-parser';
 import { sendChatMessage, sendAssessment } from '@/lib/api';
@@ -21,6 +22,117 @@ import type { ChatMode, AssessmentResult } from '@/types/knowledge';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const DRAWER_WIDTH = 280;
 
+/** 评分触发标记 — AI 回复中包含此标记则触发 sendAssessment */
+const ASSESSMENT_TRIGGER_MARKER = '[开始评分]';
+
+/**
+ * 从内容中过滤掉 [开始评分] 标记。
+ * 同时移除标记所在行及前后的多余空行。
+ */
+function filterAssessmentMarker(content: string): string {
+  let result = content.replace(ASSESSMENT_TRIGGER_MARKER, '');
+  // 清理多余的空行（连续 3 个以上换行 → 2 个）
+  result = result.replace(/\n{3,}/g, '\n\n');
+  // 去除首尾空白
+  result = result.trim();
+  return result;
+}
+
+/**
+ * 检测内容中是否包含 [开始评分] 标记。
+ */
+function hasAssessmentMarker(content: string): boolean {
+  return content.includes(ASSESSMENT_TRIGGER_MARKER);
+}
+
+/* ── KaTeX 渲染 ── */
+
+/**
+ * 将文本中的 LaTeX 公式渲染为 HTML。
+ * - $$...$$  → 块级公式（displayMode）
+ * - $...$    → 行内公式
+ *
+ * Web 端返回 HTML 字符串（通过 dangerouslySetInnerHTML 渲染）。
+ * Native 端也返回 HTML，通过 WebView 或 katex 渲染为文本近似。
+ *
+ * @param text 原始文本（可能含 LaTeX 公式）
+ * @returns 包含 HTML 的字符串
+ */
+function renderLatex(text: string): string {
+  // 使用非贪婪匹配，按顺序处理 $$...$$ 和 $...$
+  // 使用一个统一的 tokenizer 来避免 $ 和 $$ 冲突
+  const tokens: { type: 'text' | 'display' | 'inline'; content: string }[] = [];
+
+  // 先用正则找到所有公式
+  const combinedRegex = /(\$\$[\s\S]*?\$\$|\$(?!\$)[\s\S]*?\$(?!\$))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = combinedRegex.exec(text)) !== null) {
+    // 添加公式前的文本
+    if (match.index > lastIndex) {
+      tokens.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+    }
+
+    const raw = match[0];
+    if (raw.startsWith('$$')) {
+      // 块级公式：去掉 $$ 包裹
+      const latex = raw.slice(2, -2).trim();
+      tokens.push({ type: 'display', content: latex });
+    } else {
+      // 行内公式：去掉 $ 包裹
+      const latex = raw.slice(1, -1).trim();
+      tokens.push({ type: 'inline', content: latex });
+    }
+
+    lastIndex = match.index + raw.length;
+  }
+
+  // 添加最后一段文本
+  if (lastIndex < text.length) {
+    tokens.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+
+  // 如果没有找到任何公式，直接返回转义后的文本
+  if (tokens.every((t) => t.type === 'text')) {
+    return escapeHtml(text);
+  }
+
+  // 渲染所有 token 为 HTML
+  return tokens
+    .map((token) => {
+      if (token.type === 'text') {
+        return escapeHtml(token.content);
+      }
+      try {
+        const isDisplay = token.type === 'display';
+        return katex.renderToString(token.content, {
+          throwOnError: false,
+          displayMode: isDisplay,
+          trust: false,
+          strict: false,
+        });
+      } catch (err) {
+        // KaTeX 渲染失败时回退到原始 LaTeX 文本
+        const wrapper = token.type === 'display' ? '$$' : '$';
+        return escapeHtml(wrapper + token.content + wrapper);
+      }
+    })
+    .join('');
+}
+
+/**
+ * 简单的 HTML 转义，防止 XSS。
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 /* ── 根据最新 AI 回复提取状态 ── */
 function useLatestParsed(messages: ChatMessage[]) {
   return useMemo(() => {
@@ -34,6 +146,13 @@ function useLatestParsed(messages: ChatMessage[]) {
   }, [messages]);
 }
 
+/**
+ * 判断当前平台是否为 Web。
+ */
+function useIsWeb(): boolean {
+  return Platform.OS === 'web';
+}
+
 /* ── 对话气泡 ── */
 function ChatBubble({
   message,
@@ -44,6 +163,7 @@ function ChatBubble({
 }) {
   const isUser = message.role === 'user';
   const parsed: ParsedAIResponse | undefined = message.parsed;
+  const isWeb = useIsWeb();
 
   // 解题模式下的结构化展示
   if (!isKnowledgeMode && parsed?.parsed && parsed.solution) {
@@ -52,8 +172,8 @@ function ChatBubble({
         <Text className="text-sk-text-disabled text-sk-xs mb-1">{isUser ? '你' : 'AI 助手'}</Text>
         <View className="bg-sk-surface-card rounded-sk-md px-sk-4 py-sk-3 max-w-[85%] border border-sk-border-soft">
           <Text className="text-sk-text-primary text-sk-sm mb-2 font-semibold">【解题过程】</Text>
-          <Text className="text-sk-text-secondary text-sk-sm leading-6 mb-3">{parsed.solution}</Text>
-          <Text className="text-sk-text-primary text-sk-sm mb-1 font-semibold">【图像判断】</Text>
+          <RenderContent content={parsed.solution} isWeb={isWeb} />
+          <Text className="text-sk-text-primary text-sk-sm mb-1 font-semibold mt-2">【图像判断】</Text>
           <Text className="text-sk-text-secondary text-sk-sm mb-3">{parsed.isPlottable ? '可绘制' : '不可绘制'}</Text>
           <Text className="text-sk-text-primary text-sk-sm mb-1 font-semibold">【函数表达式】</Text>
           <Text className="text-sk-text-secondary text-sk-sm mb-3 font-mono">{parsed.functionExpression ?? '无'}</Text>
@@ -67,8 +187,147 @@ function ChatBubble({
     <View className={`mb-4 ${isUser ? 'items-end' : 'items-start'}`}>
       <Text className="text-sk-text-disabled text-sk-xs mb-1">{isUser ? '你' : 'AI 助手'}</Text>
       <View className={`rounded-sk-md px-sk-4 py-sk-3 max-w-[85%] ${isUser ? 'bg-brand' : 'bg-sk-surface-card border border-sk-border-soft'}`}>
-        <Text className={`text-sk-sm ${isUser ? 'text-white' : 'text-sk-text-primary'}`}>{message.content}</Text>
+        {isUser ? (
+          <Text className="text-sk-sm text-white">{message.content}</Text>
+        ) : (
+          <RenderContent content={message.content} isWeb={isWeb} />
+        )}
       </View>
+    </View>
+  );
+}
+
+/**
+ * 渲染支持 KaTeX 的内容。
+ *
+ * Web 端：使用 dangerouslySetInnerHTML 注入 KaTeX HTML。
+ * Native 端：由于 react-native 没有原生 HTML 渲染，
+ *   使用 Text 组件显示，但先将 LaTeX 公式替换为可读的 Unicode 近似。
+ */
+function RenderContent({ content, isWeb }: { content: string; isWeb: boolean }) {
+  if (isWeb) {
+    const html = renderLatex(content);
+    // react-native-web 中 dangerouslySetInnerHTML 需要在特定元素上
+    // 我们使用一个简单的 span/div 包装
+    return (
+      <span
+        className="text-sk-sm text-sk-text-primary katex-content"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
+
+  // Native 端：使用 react-native-webview 来渲染 KaTeX HTML
+  // 构建一个完整的 HTML 页面来渲染公式
+  const formulaHtml = renderLatex(content);
+  const fullHtml = buildKatexHtmlPage(formulaHtml);
+
+  return (
+    <View style={{ minHeight: 24 }}>
+      <NativeKatexRenderer html={fullHtml} />
+      {/* 降级方案：同时显示纯文本，确保 WebView 无法加载时仍有内容 */}
+      <Text className="text-sk-sm text-sk-text-primary" style={{ opacity: 0 }}>
+        {content.replace(/\$\$?/g, '').slice(0, 50)}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * 构建包含 KaTeX 渲染内容的完整 HTML 页面。
+ */
+function buildKatexHtmlPage(bodyHtml: string): string {
+  // 使用 CDN 加载 KaTeX CSS，确保 WebView 中公式样式正确
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<style>
+  body {
+    margin: 0;
+    padding: 8px 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #222222;
+    background: transparent;
+  }
+  .katex { font-size: 1.1em; }
+  .katex-display { margin: 1em 0; }
+  .katex-display > .katex { font-size: 1.2em; }
+</style>
+</head>
+<body>${bodyHtml}</body>
+</html>`;
+}
+
+/**
+ * Native 端的 KaTeX 渲染组件。
+ * 使用 WebView 渲染包含 KaTeX HTML 的内容。
+ * 通过 onMessage 获取渲染后的高度，动态调整 WebView 大小。
+ */
+function NativeKatexRenderer({ html }: { html: string }) {
+  const [height, setHeight] = useState(30);
+  // 使用 useRef 防止不必要的重新渲染
+  const htmlRef = useRef(html);
+
+  // 仅在 HTML 内容变化时更新
+  useEffect(() => {
+    htmlRef.current = html;
+  }, [html]);
+
+  // 动态导入 WebView（避免在 Web 端导入原生模块）
+  const WebViewComponent = useMemo(() => {
+    if (Platform.OS === 'web') return null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { WebView } = require('react-native-webview');
+      return WebView;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  if (!WebViewComponent) {
+    // 降级方案：显示纯文本（去掉 LaTeX 标记）
+    const fallback = html.replace(/<[^>]*>/g, '').slice(0, 200);
+    return <Text className="text-sk-sm text-sk-text-primary">{fallback || '(公式)'}</Text>;
+  }
+
+  // 注入 JS 用于在内容加载后获取实际高度
+  const injectedJs = `
+    setTimeout(function() {
+      var h = document.body.scrollHeight;
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'height', value: h }));
+    }, 100);
+    true;
+  `;
+
+  const handleMessage = useCallback((event: { nativeEvent: { data: string } }) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'height' && typeof data.value === 'number') {
+        setHeight(Math.max(data.value + 16, 24));
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  return (
+    <View style={{ height, minHeight: 24 }}>
+      <WebViewComponent
+        source={{ html: htmlRef.current }}
+        style={{ height, backgroundColor: 'transparent' }}
+        scrollEnabled={false}
+        javaScriptEnabled={true}
+        injectedJavaScript={injectedJs}
+        onMessage={handleMessage}
+        originWhitelist={['*']}
+        scalesPageToFit={false}
+        showsVerticalScrollIndicator={false}
+      />
     </View>
   );
 }
@@ -222,7 +481,7 @@ export default function AIChatScreen() {
     }
   }, [isKnowledgeMode, activeKnowledgeNodeId, knowledgeNodeContext]);
 
-  // 清除考核结果（新消息时）
+  // 清除考核结果（新用户消息时）
   useEffect(() => {
     if (assessmentResult && currentMessages.length > 0) {
       const lastMsg = currentMessages[currentMessages.length - 1];
@@ -273,6 +532,72 @@ export default function AIChatScreen() {
     setAssessmentResult(null);
   }, [dispatch]);
 
+  /**
+   * 执行考核评分。
+   *
+   * 接收 AI 刚出的题目内容（assistantReplyContent）和用户的回答（userAnswerContent），
+   * 调用 sendAssessment API 进行评分。
+   *
+   * @param assistantReplyContent AI 评分回复的完整内容（即触发了[开始评分]的那条 AI 消息）
+   * @param userAnswerContent 用户的回答文本
+   */
+  const doAssessment = useCallback(async (
+    assistantReplyContent: string,
+    userAnswerContent: string,
+  ) => {
+    if (!knowledgeNodeContext) {
+      dbLog.warn('doAssessment: knowledgeNodeContext 为空，跳过评分');
+      return;
+    }
+
+    dbLog.info('doAssessment: 开始考核评分...');
+    dispatch({ type: 'SET_LOADING', payload: true });
+
+    try {
+      const result = await sendAssessment(
+        knowledgeNodeContext.standardDefinition,
+        [assistantReplyContent],
+        [userAnswerContent],
+      );
+
+      if (result) {
+        dbLog.info(`doAssessment: 评分=${result.score}, passed=${result.passed}`);
+        setAssessmentResult(result);
+
+        // 更新掌握状态
+        const newMastery = result.passed ? 'passed' : 'learning';
+        dbLog.info(`doAssessment: 更新掌握状态为 ${newMastery}`);
+        if (result.passed) {
+          await knowledgeService.updateMastery(knowledgeNodeContext.nodeId, 'passed');
+        } else {
+          await knowledgeService.updateMastery(knowledgeNodeContext.nodeId, 'learning');
+        }
+
+        // 保存 AI 建议的笔记到知识库
+        if (result.suggestedUserNote) {
+          dbLog.info(`doAssessment: 保存建议笔记, 长度=${result.suggestedUserNote.length}`);
+          await knowledgeService.setUserNotes(knowledgeNodeContext.nodeId, result.suggestedUserNote);
+        }
+      } else {
+        dbLog.warn('doAssessment: 评分结果解析失败');
+      }
+    } catch (err) {
+      dbLog.error('doAssessment: 考核评分失败', err);
+      setErrorText(err instanceof Error ? err.message : '考核评分失败，请重试');
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  }, [knowledgeNodeContext, dispatch, knowledgeService]);
+
+  /**
+   * handleSend — 发送消息主流程。
+   *
+   * 两阶段考核流程：
+   * 1. 用户发送消息 → 调用 DeepSeek API
+   * 2. 收到 AI 回复 → 检测 [开始评分] 标记
+   *    - 有标记 → 调用 doAssessment() 评分
+   *    - 无标记 → 正常展示回复
+   */
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || isLoading) return;
@@ -327,112 +652,49 @@ export default function AIChatScreen() {
           }
         }
 
-        // 过滤 DB 代码块后展示
-        const displayContent = filterDBCommands(reply);
-        const aiMsg: ChatMessage = { id: generateId(), role: 'assistant', content: displayContent, timestamp: Date.now() };
-        dispatch({ type: 'ADD_MESSAGE', payload: aiMsg });
+        // 过滤 DB 代码块
+        let displayContent = filterDBCommands(reply);
 
-        // 检测「考考我」→ 考核阶段标记（AI 出题后等待用户回答）
-        // 注意：实际考核触发由 handleSend 内部处理 — 当用户回答后连续调用 sendAssessment
+        // 检测 [开始评分] 标记
+        const shouldAssess = hasAssessmentMarker(reply);
+        dbLog.info(`AI 回复中${shouldAssess ? '包含' : '不包含'}[开始评分] 标记`);
+
+        // 从展示内容中移除 [开始评分] 标记
+        displayContent = filterAssessmentMarker(displayContent);
+
+        const aiMsg: ChatMessage = {
+          id: generateId(),
+          role: 'assistant',
+          content: displayContent,
+          timestamp: Date.now(),
+        };
+        dispatch({ type: 'ADD_MESSAGE', payload: aiMsg });
+        dispatch({ type: 'SET_LOADING', payload: false });
+        scrollToBottom();
+
+        // 如果 AI 回复包含 [开始评分] 标记，自动触发评分
+        if (shouldAssess) {
+          dbLog.info('检测到 [开始评分] 标记，触发考核评分...');
+          // 使用过滤后的 AI 回复内容（移除标记）作为题目上下文
+          // 使用当前用户消息作为回答
+          const cleanReply = filterAssessmentMarker(reply);
+          doAssessment(cleanReply, text);
+        }
       } else {
         // 解题模式 — 保持原有逻辑
         reply = await sendChatMessage(currentForApi, { mode: 'solver' });
         const parsed = parseAIResponse(reply);
         const aiMsg: ChatMessage = { id: generateId(), role: 'assistant', content: reply, parsed, timestamp: Date.now() };
         dispatch({ type: 'ADD_MESSAGE', payload: aiMsg });
+        dispatch({ type: 'SET_LOADING', payload: false });
+        scrollToBottom();
       }
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : '未知错误，请重试');
-    } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
       scrollToBottom();
     }
-  }, [input, isLoading, currentMessages, dispatch, scrollToBottom, isKnowledgeMode, knowledgeNodeContext, knowledgeService]);
-
-  // 考核评分处理
-  const handleAssessment = useCallback(async () => {
-    if (!knowledgeNodeContext) return;
-
-    // 收集最近的 AI 题目和用户回答
-    // 简化方案：取最后一条 assistant 消息作为题目，最后一条 user 消息作为回答
-    const recentMessages = [...currentMessages];
-    const lastUserMsg = [...recentMessages].reverse().find((m) => m.role === 'user');
-    const lastAssistantMsg = [...recentMessages].reverse().find((m) => m.role === 'assistant');
-
-    if (!lastUserMsg || !lastAssistantMsg) return;
-
-    dbLog.info('handleAssessment: 开始考核评分...');
-    dispatch({ type: 'SET_LOADING', payload: true });
-
-    try {
-      const result = await sendAssessment(
-        knowledgeNodeContext.standardDefinition,
-        [lastAssistantMsg.content],
-        [lastUserMsg.content],
-      );
-
-      if (result) {
-        dbLog.info(`handleAssessment: 评分=${result.score}, passed=${result.passed}`);
-        setAssessmentResult(result);
-
-        // 更新掌握状态
-        const newMastery = result.passed ? 'passed' : 'learning';
-        dbLog.info(`handleAssessment: 更新掌握状态为 ${newMastery}`);
-        if (result.passed) {
-          await knowledgeService.updateMastery(knowledgeNodeContext.nodeId, 'passed');
-        } else {
-          await knowledgeService.updateMastery(knowledgeNodeContext.nodeId, 'learning');
-        }
-
-        // 保存 AI 建议的笔记到知识库
-        if (result.suggestedUserNote) {
-          dbLog.info(`handleAssessment: 保存建议笔记, 长度=${result.suggestedUserNote.length}`);
-          await knowledgeService.setUserNotes(knowledgeNodeContext.nodeId, result.suggestedUserNote);
-        }
-
-        // 更新节点上下文
-        const updatedNode = await knowledgeService.getNode(knowledgeNodeContext.nodeId);
-        if (updatedNode) {
-          setKnowledgeNodeContext({
-            ...knowledgeNodeContext,
-          });
-        }
-      } else {
-        dbLog.warn('handleAssessment: 评分结果解析失败');
-      }
-    } catch (err) {
-      dbLog.error('handleAssessment: 考核评分失败', err);
-      setErrorText(err instanceof Error ? err.message : '考核评分失败，请重试');
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
-  }, [currentMessages, knowledgeNodeContext, dispatch, knowledgeService]);
-
-  // 判断是否需要考核评分：知识库模式下，用户最近问了"考考我"之类的话
-  const shouldTriggerAssessment = useMemo(() => {
-    if (!isKnowledgeMode || currentMessages.length < 3) return false;
-    const lastAssistantMsg = [...currentMessages].reverse().find((m) => m.role === 'assistant');
-    const lastUserMsg = [...currentMessages].reverse().find((m) => m.role === 'user');
-    if (!lastAssistantMsg || !lastUserMsg) return false;
-    // 如果用户消息包含"考考我"关键词，说明 AI 已经出题
-    // 我们在此等待用户后续的回答消息来触发考核
-    const hasAssessmentTrigger = [...currentMessages].some(
-      (m) => m.role === 'user' && (m.content.includes('考考我') || m.content.includes('测试一下') || m.content.includes('来几道题')),
-    );
-    // 检查最近一条用户消息不是触发词本身（即它是回答）
-    const lastUserIsAnswer = lastUserMsg.role === 'user'
-      && !lastUserMsg.content.includes('考考我')
-      && !lastUserMsg.content.includes('测试一下')
-      && !lastUserMsg.content.includes('来几道题');
-    return hasAssessmentTrigger && lastUserIsAnswer && assessmentResult === null;
-  }, [isKnowledgeMode, currentMessages, assessmentResult]);
-
-  // 自动触发考核评分
-  useEffect(() => {
-    if (shouldTriggerAssessment && !isLoading) {
-      handleAssessment();
-    }
-  }, [shouldTriggerAssessment, isLoading, handleAssessment]);
+  }, [input, isLoading, currentMessages, dispatch, scrollToBottom, isKnowledgeMode, knowledgeNodeContext, knowledgeService, doAssessment]);
 
   // 欢迎语
   const welcomeText = isKnowledgeMode
@@ -557,19 +819,6 @@ export default function AIChatScreen() {
               <Text className={`text-sk-xs font-semibold ${hasSolution ? 'text-brand' : 'text-sk-text-disabled'}`}>分享过程</Text>
             </TouchableOpacity>
           </>
-        )}
-
-        {/* 知识库模式专属：考核按钮 */}
-        {isKnowledgeMode && hasMessages && (
-          <TouchableOpacity
-            className="flex-row items-center gap-1 rounded-sk-sm px-sk-3 py-1.5 border border-sk-border-soft"
-            onPress={handleAssessment}
-            disabled={isLoading}
-            activeOpacity={0.7}
-          >
-            <Text className="text-sk-xs">📝</Text>
-            <Text className="text-sk-xs font-semibold text-sk-text-secondary">评分</Text>
-          </TouchableOpacity>
         )}
 
         {/* 模式切换按钮 — 两种模式都显示 */}

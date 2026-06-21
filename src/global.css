@@ -2,8 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* KaTeX 公式样式（Web 端） */
+@import 'katex/dist/katex.min.css';
+
 @layer components {
   .btn-primary {
     @apply bg-brand text-white rounded-sk-sm px-sk-4 py-3 font-semibold;
+  }
+
+  /* KaTeX 内容容器中的公式颜色适配 */
+  .katex-content .katex {
+    font-size: 1.05em;
+  }
+  .katex-content .katex-display {
+    margin: 0.75em 0;
+  }
+  .katex-content .katex-display > .katex {
+    font-size: 1.15em;
   }
 }
