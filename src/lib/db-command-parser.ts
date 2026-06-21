@@ -6,6 +6,7 @@
  */
 import type { DBCommand } from '@/types/knowledge';
 import { KnowledgeService } from '@/db/knowledge-service';
+import { dbLog } from '@/db/logger';
 
 /**
  * 从 AI 回复内容中提取所有 DB 指令。
@@ -27,6 +28,7 @@ export function extractDBCommands(content: string): DBCommand[] {
 
   while ((match = dbBlockRegex.exec(content)) !== null) {
     const blockContent = match[1].trim();
+    dbLog.debug(`extractDBCommands: 发现 db 块, 内容长度=${blockContent.length}`);
     try {
       const parsed = JSON.parse(blockContent);
 
@@ -36,13 +38,19 @@ export function extractDBCommands(content: string): DBCommand[] {
       for (const item of items) {
         const cmd = validateCommand(item);
         if (cmd) {
+          dbLog.info(`extractDBCommands: 解析到指令 action=${cmd.action}, nodeId=${cmd.nodeId}`);
           commands.push(cmd);
         }
       }
-    } catch {
+    } catch (err) {
       // JSON 解析失败，跳过该代码块
+      dbLog.warn('extractDBCommands: JSON 解析失败', { blockContent: blockContent.slice(0, 200), err });
       continue;
     }
+  }
+
+  if (commands.length === 0) {
+    dbLog.debug('extractDBCommands: AI 回复中未发现 db 指令块');
   }
 
   return commands;
@@ -81,6 +89,7 @@ export async function executeDBCommand(
   service: KnowledgeService,
   command: DBCommand,
 ): Promise<unknown> {
+  dbLog.info(`executeDBCommand: action=${command.action}, nodeId=${command.nodeId}${command.value != null ? `, valueLen=${command.value.length}` : ''}`);
   switch (command.action) {
     case 'set_user_notes':
       if (command.value != null) {

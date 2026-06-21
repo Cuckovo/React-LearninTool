@@ -13,6 +13,7 @@ import { GeoGebraDrawIcon, MathLanguageIcon, PushMessageIcon, HistoryIcon, NewCh
 import { KnowledgeService } from '@/db/knowledge-service';
 import { extractDBCommands, executeDBCommands } from '@/lib/db-command-parser';
 import { buildKnowledgeContext } from '@/lib/knowledge-prompt';
+import { dbLog } from '@/db/logger';
 import ModeSwitcher from '@/components/chat/mode-switcher';
 import AssessmentResultCard from '@/components/chat/assessment-result-card';
 import type { ChatMode, AssessmentResult } from '@/types/knowledge';
@@ -296,6 +297,7 @@ export default function AIChatScreen() {
           // 查询当前 mastery 状态
           const node = await knowledgeService.getNode(knowledgeNodeContext.nodeId);
           nodeContextSysMsg = buildKnowledgeContext(
+            knowledgeNodeContext.nodeId,
             knowledgeNodeContext.nodeLabel,
             knowledgeNodeContext.standardDefinition,
             node?.masteryStatus ?? 'not_started',
@@ -308,9 +310,12 @@ export default function AIChatScreen() {
         });
 
         // 提取并执行 DB 指令
+        dbLog.info('AI 回复已收到，检查 DB 指令...');
         const dbCommands = extractDBCommands(reply);
+        dbLog.info(`AI 回复中包含 ${dbCommands.length} 条 DB 指令`);
         if (dbCommands.length > 0) {
-          await executeDBCommands(knowledgeService, dbCommands);
+          const results = await executeDBCommands(knowledgeService, dbCommands);
+          dbLog.info('DB 指令执行结果:', results);
           // 更新本地节点上下文中的 mastery 状态
           for (const cmd of dbCommands) {
             if (cmd.action === 'set_mastery' && cmd.value) {
@@ -356,6 +361,7 @@ export default function AIChatScreen() {
 
     if (!lastUserMsg || !lastAssistantMsg) return;
 
+    dbLog.info('handleAssessment: 开始考核评分...');
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
@@ -366,13 +372,22 @@ export default function AIChatScreen() {
       );
 
       if (result) {
+        dbLog.info(`handleAssessment: 评分=${result.score}, passed=${result.passed}`);
         setAssessmentResult(result);
 
         // 更新掌握状态
+        const newMastery = result.passed ? 'passed' : 'learning';
+        dbLog.info(`handleAssessment: 更新掌握状态为 ${newMastery}`);
         if (result.passed) {
           await knowledgeService.updateMastery(knowledgeNodeContext.nodeId, 'passed');
         } else {
           await knowledgeService.updateMastery(knowledgeNodeContext.nodeId, 'learning');
+        }
+
+        // 保存 AI 建议的笔记到知识库
+        if (result.suggestedUserNote) {
+          dbLog.info(`handleAssessment: 保存建议笔记, 长度=${result.suggestedUserNote.length}`);
+          await knowledgeService.setUserNotes(knowledgeNodeContext.nodeId, result.suggestedUserNote);
         }
 
         // 更新节点上下文
@@ -382,8 +397,11 @@ export default function AIChatScreen() {
             ...knowledgeNodeContext,
           });
         }
+      } else {
+        dbLog.warn('handleAssessment: 评分结果解析失败');
       }
     } catch (err) {
+      dbLog.error('handleAssessment: 考核评分失败', err);
       setErrorText(err instanceof Error ? err.message : '考核评分失败，请重试');
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });

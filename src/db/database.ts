@@ -127,16 +127,19 @@ async function runMigrations(db: SQLiteDatabase): Promise<void> {
   try {
     // Migration 1: sessions 表新增 type 列（solver / knowledge）
     await db.execAsync(`ALTER TABLE sessions ADD COLUMN type TEXT DEFAULT 'solver' NOT NULL`);
-    dbLog.info('Migration: sessions.type 列已添加');
+    dbLog.info('Migration 1: sessions.type 列已添加');
   } catch {
     // 列已存在，跳过
-    dbLog.debug('Migration: sessions.type 列已存在，跳过');
+    dbLog.debug('Migration 1: sessions.type 列已存在，跳过');
   }
 
   // 填充存量会话的 type 默认值（NULL → 'solver'）
   try {
-    await db.runAsync("UPDATE sessions SET type = 'solver' WHERE type IS NULL");
+    const result = await db.runAsync("UPDATE sessions SET type = 'solver' WHERE type IS NULL");
+    if (result.changes > 0) {
+      dbLog.info(`Migration 2: 填充 ${result.changes} 条 sessions.type 默认值`);
+    }
   } catch {
-    dbLog.debug('Migration: sessions.type NULL 填充跳过（无需操作）');
+    dbLog.debug('Migration 2: sessions.type NULL 填充跳过（无需操作）');
   }
 }

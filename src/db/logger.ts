@@ -19,11 +19,18 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
   debug: 4,
 };
 
-/** 从环境变量读取日志级别，默认 info */
+/** 从环境变量读取日志级别，默认 info。
+ *  开发模式下（__DEV__），若未显式设置则默认为 debug。 */
 function getLevel(): LogLevel {
   const raw = process.env.EXPO_PUBLIC_DB_LOG_LEVEL as string | undefined;
-  const normalized = (raw ?? 'info').toLowerCase();
-  if (normalized in LEVEL_ORDER) return normalized as LogLevel;
+  if (raw) {
+    const normalized = raw.toLowerCase();
+    if (normalized in LEVEL_ORDER) return normalized as LogLevel;
+  }
+  // 开发模式下默认 debug，生产环境默认 info
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    return 'debug';
+  }
   return 'info';
 }
 

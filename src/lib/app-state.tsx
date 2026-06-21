@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect, type Dispatch 
 import { getExpoDb } from '@/db/database';
 import { dbLog } from '@/db/logger';
 import { migrateFromAsyncStorage } from '@/db/migrate';
+import { initializeDemoData } from '@/db/seed-outline';
 import {
   getAllSessions,
   createSession,
@@ -266,7 +267,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         await getExpoDb();
         // 1. 尝试从 AsyncStorage 迁移旧数据（幂等）
         await migrateFromAsyncStorage();
-        // 2. 从 SQLite 加载所有会话
+        // 2. 初始化知识库种子数据（幂等，仅在 knowledge_nodes 为空时插入）
+        dbLog.info('开始初始化知识库种子数据...');
+        await initializeDemoData();
+        dbLog.info('知识库种子数据初始化完成');
+        // 3. 从 SQLite 加载所有会话
         const sessions: ChatSession[] = await getAllSessions();
         dbLog.info(`加载 ${sessions.length} 个会话`);
         dispatch({ type: 'LOAD_SESSIONS', payload: sessions });

@@ -124,10 +124,12 @@ export class KnowledgeService {
       dbLog.warn('setUserNotes 跳过：DB 未初始化');
       return;
     }
+    dbLog.info(`setUserNotes: nodeId=${id}, notesLen=${notes.length}`);
     await db.runAsync(
       'UPDATE knowledge_nodes SET user_notes = ?, updated_at = ? WHERE id = ?',
       [notes, Date.now(), id],
     );
+    dbLog.debug(`setUserNotes 完成: nodeId=${id}`);
   }
 
   /**
@@ -139,10 +141,12 @@ export class KnowledgeService {
       dbLog.warn('setStandardDefinition 跳过：DB 未初始化');
       return;
     }
+    dbLog.info(`setStandardDefinition: nodeId=${id}, defLen=${def.length}`);
     await db.runAsync(
       'UPDATE knowledge_nodes SET standard_definition = ?, updated_at = ? WHERE id = ?',
       [def, Date.now(), id],
     );
+    dbLog.debug(`setStandardDefinition 完成: nodeId=${id}`);
   }
 
   /**
@@ -154,10 +158,12 @@ export class KnowledgeService {
       dbLog.warn('updateMastery 跳过：DB 未初始化');
       return;
     }
+    dbLog.info(`updateMastery: nodeId=${id}, status=${status}`);
     await db.runAsync(
       'UPDATE knowledge_nodes SET mastery_status = ?, updated_at = ? WHERE id = ?',
       [status, Date.now(), id],
     );
+    dbLog.debug(`updateMastery 完成: nodeId=${id}`);
   }
 
   /**

@@ -6,7 +6,6 @@
  */
 import { getExpoDb, getExpoDbSync } from './database';
 import { dbLog } from './logger';
-import { generateId } from '@/lib/app-state';
 import type { ChapterSeed, ConceptSeed } from '@/types/knowledge';
 
 const NOW = Date.now();
@@ -125,10 +124,16 @@ const chapters: ChapterSeed[] = [
  * 树结构：subject(高等数学) → chapter(章) → section(节) → concept(概念)。
  */
 export async function initializeDemoData(): Promise<void> {
-  const db = getExpoDbSync();
+  // 优先使用同步实例（已初始化），降级到异步初始化
+  let db = getExpoDbSync();
   if (!db) {
-    dbLog.warn('initializeDemoData 跳过：DB 未初始化');
-    return;
+    dbLog.warn('initializeDemoData: 同步 DB 未就绪，尝试异步初始化...');
+    try {
+      db = await getExpoDb();
+    } catch {
+      dbLog.warn('initializeDemoData 跳过：DB 未初始化');
+      return;
+    }
   }
 
   // 幂等检查
@@ -144,6 +149,7 @@ export async function initializeDemoData(): Promise<void> {
 
   // 1. 根节点：学科
   const subjectId = 'kn-subject-highmath';
+  dbLog.debug(`插入根节点: id=${subjectId}, label=高等数学`);
   await db.runAsync(
     `INSERT INTO knowledge_nodes (id, parent_id, type, label, standard_definition, user_notes, mastery_status, metadata, sort_order, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -166,6 +172,7 @@ export async function initializeDemoData(): Promise<void> {
 
   for (const chapter of chapters) {
     const chapterId = `kn-ch-${chapterSortOrder}`;
+    dbLog.debug(`插入章: id=${chapterId}, label=${chapter.label}`);
     await db.runAsync(
       `INSERT INTO knowledge_nodes (id, parent_id, type, label, standard_definition, user_notes, mastery_status, metadata, sort_order, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -206,6 +213,7 @@ export async function initializeDemoData(): Promise<void> {
 
       for (const concept of section.concepts) {
         const conceptId = `kn-conc-${chapterSortOrder}-${section.sortOrder}-${concept.sortOrder}`;
+        dbLog.debug(`插入概念: id=${conceptId}, label=${concept.label}, defLen=${concept.standardDefinition.length}`);
         await db.runAsync(
           `INSERT INTO knowledge_nodes (id, parent_id, type, label, standard_definition, user_notes, mastery_status, metadata, sort_order, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
