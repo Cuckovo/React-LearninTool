@@ -9,12 +9,14 @@ import { useRouter } from 'expo-router';
 import katex from 'katex';
 import { useAppState, generateId, type ChatMessage, type ChatSession, type ParsedAIResponse } from '@/lib/app-state';
 import { parseAIResponse, filterDBCommands } from '@/lib/ai-parser';
-import { sendChatMessage, sendAssessment } from '@/lib/api';
+import { sendChatMessageStream, sendAssessment } from '@/lib/api';
 import { GeoGebraDrawIcon, MathLanguageIcon, PushMessageIcon, HistoryIcon, NewChatIcon } from '@/constants/icons';
 import { KnowledgeService } from '@/db/knowledge-service';
 import { extractDBCommands, executeDBCommands } from '@/lib/db-command-parser';
 import { buildKnowledgeContext } from '@/lib/knowledge-prompt';
 import { dbLog } from '@/db/logger';
+import { renderMarkdown } from '@/lib/markdown-renderer';
+import { StreamBuffer } from '@/lib/stream-buffer';
 import ModeSwitcher from '@/components/chat/mode-switcher';
 import AssessmentResultCard from '@/components/chat/assessment-result-card';
 import type { ChatMode, AssessmentResult } from '@/types/knowledge';
@@ -43,6 +45,23 @@ function filterAssessmentMarker(content: string): string {
  */
 function hasAssessmentMarker(content: string): boolean {
   return content.includes(ASSESSMENT_TRIGGER_MARKER);
+}
+
+/* ── 统一渲染管道 ── */
+
+/**
+ * 统一内容渲染管道。
+ *
+ * 调用链：rawText → renderMarkdown（Markdown → HTML）→ renderLatex（LaTeX → KaTeX HTML）→ HTML
+ *
+ * @param rawText 原始文本（可能含 Markdown + LaTeX）
+ * @returns 包含 HTML 的字符串
+ */
+function renderContent(rawText: string): string {
+  // 1. Markdown → HTML（保护 LaTeX 公式不被损坏）
+  const html = renderMarkdown(rawText);
+  // 2. LaTeX → KaTeX HTML
+  return renderLatex(html);
 }
 
 /* ── KaTeX 渲染 ── */
@@ -198,17 +217,15 @@ function ChatBubble({
 }
 
 /**
- * 渲染支持 KaTeX 的内容。
+ * 渲染支持 Markdown + KaTeX 的内容。
  *
- * Web 端：使用 dangerouslySetInnerHTML 注入 KaTeX HTML。
- * Native 端：由于 react-native 没有原生 HTML 渲染，
- *   使用 Text 组件显示，但先将 LaTeX 公式替换为可读的 Unicode 近似。
+ * Web 端：通过 renderContent 统一管道（Markdown → KaTeX HTML），
+ *   使用 dangerouslySetInnerHTML 注入渲染后的 HTML。
+ * Native 端：使用 WebView 渲染 KaTeX HTML。
  */
 function RenderContent({ content, isWeb }: { content: string; isWeb: boolean }) {
   if (isWeb) {
-    const html = renderLatex(content);
-    // react-native-web 中 dangerouslySetInnerHTML 需要在特定元素上
-    // 我们使用一个简单的 span/div 包装
+    const html = renderContent(content);
     return (
       <span
         className="text-sk-sm text-sk-text-primary katex-content"
@@ -218,8 +235,7 @@ function RenderContent({ content, isWeb }: { content: string; isWeb: boolean }) 
   }
 
   // Native 端：使用 react-native-webview 来渲染 KaTeX HTML
-  // 构建一个完整的 HTML 页面来渲染公式
-  const formulaHtml = renderLatex(content);
+  const formulaHtml = renderContent(content);
   const fullHtml = buildKatexHtmlPage(formulaHtml);
 
   return (
@@ -590,11 +606,17 @@ export default function AIChatScreen() {
   }, [knowledgeNodeContext, dispatch, knowledgeService]);
 
   /**
-   * handleSend — 发送消息主流程。
+   * handleSend — 发送消息主流程（流式传输）。
+   *
+   * 流程：
+   * 1. 用户消息添加到 context
+   * 2. 调用 sendChatMessageStream（SSE 流式）
+   * 3. 首个 token 到达时创建 AI 消息占位（dispatch ADD_MESSAGE），后续通过 dispatch UPDATE_MESSAGE 更新
+   * 4. 流结束后：提取 DB 指令 → 过滤展示内容 → 检测 [开始评分]
    *
    * 两阶段考核流程：
-   * 1. 用户发送消息 → 调用 DeepSeek API
-   * 2. 收到 AI 回复 → 检测 [开始评分] 标记
+   * 1. 用户发送消息 → 流式调用 DeepSeek API
+   * 2. 收到完整 AI 回复 → 检测 [开始评分] 标记
    *    - 有标记 → 调用 doAssessment() 评分
    *    - 无标记 → 正常展示回复
    */
@@ -613,13 +635,12 @@ export default function AIChatScreen() {
     const currentForApi = [...currentMessages, userMsg];
 
     try {
-      let reply: string;
+      let fullReply: string;
 
       if (isKnowledgeMode) {
         // 知识库模式 — 构建节点上下文
         let nodeContextSysMsg: string | undefined;
         if (knowledgeNodeContext) {
-          // 查询当前 mastery 状态
           const node = await knowledgeService.getNode(knowledgeNodeContext.nodeId);
           nodeContextSysMsg = buildKnowledgeContext(
             knowledgeNodeContext.nodeId,
@@ -629,19 +650,61 @@ export default function AIChatScreen() {
           );
         }
 
-        reply = await sendChatMessage(currentForApi, {
-          mode: 'knowledge',
-          nodeContextSystemMessage: nodeContextSysMsg,
+        // ── 流式传输 ──
+        const aiMsgId = generateId();
+        const streamBuffer = new StreamBuffer();
+        let aiMsgCreated = false;
+        let previousText = '';
+
+        fullReply = await sendChatMessageStream(
+          currentForApi,
+          (streamingText: string) => {
+            // 仅将增量文本送入 StreamBuffer（避免重复累积）
+            const delta = streamingText.slice(previousText.length);
+            previousText = streamingText;
+            if (delta) {
+              streamBuffer.feed(delta);
+            }
+
+            if (!aiMsgCreated) {
+              // 首个 token — 创建 AI 消息占位
+              const placeholderMsg: ChatMessage = {
+                id: aiMsgId,
+                role: 'assistant',
+                content: streamingText,
+                timestamp: Date.now(),
+              };
+              dispatch({ type: 'ADD_MESSAGE', payload: placeholderMsg });
+              aiMsgCreated = true;
+              scrollToBottom();
+            } else {
+              // 后续 token — 更新现有消息
+              dispatch({
+                type: 'UPDATE_MESSAGE',
+                payload: { id: aiMsgId, content: streamingText },
+              });
+            }
+          },
+          {
+            mode: 'knowledge',
+            nodeContextSystemMessage: nodeContextSysMsg,
+          },
+        );
+
+        // 流结束 — flush 缓冲中的剩余内容并做最终更新
+        streamBuffer.flush(); // 清空缓冲，确保完整文本已通过 onChunk 传递
+        dispatch({
+          type: 'UPDATE_MESSAGE',
+          payload: { id: aiMsgId, content: fullReply },
         });
 
         // 提取并执行 DB 指令
-        dbLog.info('AI 回复已收到，检查 DB 指令...');
-        const dbCommands = extractDBCommands(reply);
+        dbLog.info('AI 流式回复已完成，检查 DB 指令...');
+        const dbCommands = extractDBCommands(fullReply);
         dbLog.info(`AI 回复中包含 ${dbCommands.length} 条 DB 指令`);
         if (dbCommands.length > 0) {
           const results = await executeDBCommands(knowledgeService, dbCommands);
           dbLog.info('DB 指令执行结果:', results);
-          // 更新本地节点上下文中的 mastery 状态
           for (const cmd of dbCommands) {
             if (cmd.action === 'set_mastery' && cmd.value) {
               const node = await knowledgeService.getNode(cmd.nodeId);
@@ -653,39 +716,64 @@ export default function AIChatScreen() {
         }
 
         // 过滤 DB 代码块
-        let displayContent = filterDBCommands(reply);
+        let displayContent = filterDBCommands(fullReply);
 
         // 检测 [开始评分] 标记
-        const shouldAssess = hasAssessmentMarker(reply);
+        const shouldAssess = hasAssessmentMarker(fullReply);
         dbLog.info(`AI 回复中${shouldAssess ? '包含' : '不包含'}[开始评分] 标记`);
 
         // 从展示内容中移除 [开始评分] 标记
         displayContent = filterAssessmentMarker(displayContent);
 
-        const aiMsg: ChatMessage = {
-          id: generateId(),
-          role: 'assistant',
-          content: displayContent,
-          timestamp: Date.now(),
-        };
-        dispatch({ type: 'ADD_MESSAGE', payload: aiMsg });
+        // 最终更新消息内容为过滤后的展示文本
+        dispatch({
+          type: 'UPDATE_MESSAGE',
+          payload: { id: aiMsgId, content: displayContent },
+        });
         dispatch({ type: 'SET_LOADING', payload: false });
         scrollToBottom();
 
         // 如果 AI 回复包含 [开始评分] 标记，自动触发评分
         if (shouldAssess) {
           dbLog.info('检测到 [开始评分] 标记，触发考核评分...');
-          // 使用过滤后的 AI 回复内容（移除标记）作为题目上下文
-          // 使用当前用户消息作为回答
-          const cleanReply = filterAssessmentMarker(reply);
+          const cleanReply = filterAssessmentMarker(fullReply);
           doAssessment(cleanReply, text);
         }
       } else {
-        // 解题模式 — 保持原有逻辑
-        reply = await sendChatMessage(currentForApi, { mode: 'solver' });
-        const parsed = parseAIResponse(reply);
-        const aiMsg: ChatMessage = { id: generateId(), role: 'assistant', content: reply, parsed, timestamp: Date.now() };
-        dispatch({ type: 'ADD_MESSAGE', payload: aiMsg });
+        // ── 解题模式 — 流式传输 ──
+        const aiMsgId = generateId();
+        let aiMsgCreated = false;
+
+        fullReply = await sendChatMessageStream(
+          currentForApi,
+          (streamingText: string) => {
+            if (!aiMsgCreated) {
+              const placeholderMsg: ChatMessage = {
+                id: aiMsgId,
+                role: 'assistant',
+                content: streamingText,
+                timestamp: Date.now(),
+              };
+              dispatch({ type: 'ADD_MESSAGE', payload: placeholderMsg });
+              aiMsgCreated = true;
+              scrollToBottom();
+            } else {
+              dispatch({
+                type: 'UPDATE_MESSAGE',
+                payload: { id: aiMsgId, content: streamingText },
+              });
+            }
+          },
+          { mode: 'solver' },
+        );
+
+        // 流结束后解析 AI 回复
+        const parsed = parseAIResponse(fullReply);
+        dispatch({
+          type: 'UPDATE_MESSAGE',
+          payload: { id: aiMsgId, content: fullReply, parsed },
+        });
+
         dispatch({ type: 'SET_LOADING', payload: false });
         scrollToBottom();
       }

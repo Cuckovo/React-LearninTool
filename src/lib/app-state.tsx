@@ -74,7 +74,8 @@ type AppAction =
   | { type: 'LOAD_SESSIONS'; payload: ChatSession[] }
   | { type: 'SET_CHAT_MODE'; payload: ChatMode }
   | { type: 'SET_KNOWLEDGE_NODE'; payload: string | null }
-  | { type: 'CREATE_KNOWLEDGE_SESSION'; payload: KnowledgeSessionPayload };
+  | { type: 'CREATE_KNOWLEDGE_SESSION'; payload: KnowledgeSessionPayload }
+  | { type: 'UPDATE_MESSAGE'; payload: { id: string; content: string; parsed?: ParsedAIResponse } };
 
 const MAX_SESSIONS = 10;
 
@@ -139,6 +140,25 @@ function appReducer(state: AppState, action: AppAction): AppState {
     }
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
+    case 'UPDATE_MESSAGE': {
+      // 更新指定消息的内容和可选的 parsed 字段（用于流式传输后更新）
+      const { id, content, parsed } = action.payload;
+      let sessions = state.sessions;
+      const sid = state.activeSessionId;
+      if (!sid) return state;
+      sessions = updateSession(
+        { ...state, sessions, activeSessionId: sid },
+        sid,
+        (s) => ({
+          ...s,
+          messages: s.messages.map((m) =>
+            m.id === id ? { ...m, content, timestamp: Date.now(), ...(parsed !== undefined ? { parsed } : {}) } : m,
+          ),
+          updatedAt: Date.now(),
+        }),
+      ).sessions;
+      return { ...state, sessions };
+    }
     case 'SEND_PLOT_COMMAND':
       return { ...state, plotCommand: action.payload };
     case 'CLEAR_PLOT_COMMAND':
