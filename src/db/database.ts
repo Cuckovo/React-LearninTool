@@ -32,8 +32,14 @@ export function getExpoDb(): Promise<SQLiteDatabase> {
 
       dbLog.info(`数据库初始化完成 (${initPlatform})`);
 
+      // 启用外键约束（expo-sqlite 默认不启用）
+      await _expoDb.execAsync('PRAGMA foreign_keys = ON');
+
       // 创建表结构
       await createTablesIfNeeded(_expoDb);
+
+      // 执行增量迁移
+      await runMigrations(_expoDb);
 
       return _expoDb;
     })();
@@ -79,5 +85,58 @@ async function createTablesIfNeeded(db: SQLiteDatabase): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at);
     CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
     CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
+
+    CREATE TABLE IF NOT EXISTS knowledge_nodes (
+      id TEXT PRIMARY KEY NOT NULL,
+      parent_id TEXT,
+      type TEXT NOT NULL,
+      label TEXT NOT NULL,
+      standard_definition TEXT,
+      user_notes TEXT,
+      mastery_status TEXT NOT NULL DEFAULT 'not_started',
+      metadata TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (parent_id) REFERENCES knowledge_nodes(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_nodes_parent ON knowledge_nodes(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_nodes_type ON knowledge_nodes(type);
+    CREATE INDEX IF NOT EXISTS idx_nodes_label ON knowledge_nodes(label);
+
+    CREATE TABLE IF NOT EXISTS agent_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      session_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target TEXT,
+      payload TEXT,
+      timestamp INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_logs_session ON agent_logs(session_id);
   `);
+}
+
+/**
+ * 增量迁移：为存量表增加新列、填充默认值。
+ *
+ * 迁移策略：每条迁移使用 try/catch 包裹，幂等 — 已存在的列不会重复添加。
+ */
+async function runMigrations(db: SQLiteDatabase): Promise<void> {
+  try {
+    // Migration 1: sessions 表新增 type 列（solver / knowledge）
+    await db.execAsync(`ALTER TABLE sessions ADD COLUMN type TEXT DEFAULT 'solver' NOT NULL`);
+    dbLog.info('Migration: sessions.type 列已添加');
+  } catch {
+    // 列已存在，跳过
+    dbLog.debug('Migration: sessions.type 列已存在，跳过');
+  }
+
+  // 填充存量会话的 type 默认值（NULL → 'solver'）
+  try {
+    await db.runAsync("UPDATE sessions SET type = 'solver' WHERE type IS NULL");
+  } catch {
+    dbLog.debug('Migration: sessions.type NULL 填充跳过（无需操作）');
+  }
 }

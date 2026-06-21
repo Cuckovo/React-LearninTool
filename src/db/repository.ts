@@ -1,5 +1,3 @@
-import { eq, desc, sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { getExpoDb, getExpoDbSync } from './database';
 import * as schema from './schema';
 import type { ChatSession, ChatMessage, ParsedAIResponse } from '@/lib/app-state';
@@ -9,18 +7,6 @@ const { sessions, messages } = schema;
 
 /** 最多保留的会话数量 */
 const MAX_SESSIONS = 10;
-
-/**
- * 获取 drizzle 实例。
- *
- * Web 端 drizzle-orm/expo-sqlite 的 sync driver 依赖 SharedArrayBuffer 不可用，
- * 因此 Web 端直接使用 expo-sqlite 异步 SQL API。
- */
-function getDrizzle() {
-  const expo = getExpoDbSync();
-  if (!expo) return null;
-  return drizzle(expo, { schema });
-}
 
 function rowToChatMessage(row: Record<string, unknown>): ChatMessage {
   const parsedFlag = Number(row['parsed'] ?? 0);
@@ -76,6 +62,7 @@ async function _getAllSessions(client: import('expo-sqlite').SQLiteDatabase): Pr
     result.push({
       id: row['id'] as string,
       title: row['title'] as string,
+      type: (row['type'] as string) ?? 'solver',
       messages: msgRows.map(rowToChatMessage),
       createdAt: Number(row['created_at'] ?? 0),
       updatedAt: Number(row['updated_at'] ?? 0),
@@ -87,6 +74,8 @@ async function _getAllSessions(client: import('expo-sqlite').SQLiteDatabase): Pr
 
 /**
  * 创建新会话（含有首条消息时一并插入）。
+ *
+ * @param session 会话对象，type 字段默认为 'solver'
  */
 export async function createSession(session: ChatSession): Promise<void> {
   const db = getExpoDbSync();
@@ -94,10 +83,11 @@ export async function createSession(session: ChatSession): Promise<void> {
     dbLog.warn('createSession 跳过：DB 未初始化');
     return;
   }
-  dbLog.debug(`创建会话 "${session.title}" (id=${session.id.slice(0, 8)}...)`);
+  const sessionType = (session as Record<string, unknown>).type as string ?? 'solver';
+  dbLog.debug(`创建会话 "${session.title}" (type=${sessionType}, id=${session.id.slice(0, 8)}...)`);
   await db.runAsync(
-    'INSERT INTO sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
-    [session.id, session.title || '新对话', session.createdAt || Date.now(), session.updatedAt || Date.now()],
+    'INSERT INTO sessions (id, title, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    [session.id, session.title || '新对话', sessionType, session.createdAt || Date.now(), session.updatedAt || Date.now()],
   );
   if (session.messages.length > 0) {
     dbLog.debug(`  └─ 插入 ${session.messages.length} 条首条消息`);
