@@ -279,7 +279,7 @@ const AppContext = createContext<{
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // 启动时：先初始化数据库，再执行数据迁移，最后从 SQLite 加载数据
+  // 启动时：串行初始化（Web 端 expo-sqlite OPFS 不支持并发 Access Handles）
   useEffect(() => {
     (async () => {
       try {
@@ -288,10 +288,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         // 1. 尝试从 AsyncStorage 迁移旧数据（幂等）
         await migrateFromAsyncStorage();
         // 2. 初始化知识库种子数据（幂等，仅在 knowledge_nodes 为空时插入）
+        //    注意：串行调用，避免与 outline-page.tsx 并发导致 OPFS Access Handle 冲突
         dbLog.info('开始初始化知识库种子数据...');
         await initializeDemoData();
         dbLog.info('知识库种子数据初始化完成');
-        // 3. 从 SQLite 加载所有会话
+        // 3. 从 SQLite 加载所有会话（种子数据完成后再查询，避免并发）
+        await new Promise(resolve => setTimeout(resolve, 200)); // 给 OPFS 释放前一个 Handle
         const sessions: ChatSession[] = await getAllSessions();
         dbLog.info(`加载 ${sessions.length} 个会话`);
         dispatch({ type: 'LOAD_SESSIONS', payload: sessions });
