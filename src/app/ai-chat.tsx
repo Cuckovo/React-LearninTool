@@ -16,7 +16,6 @@ import { extractDBCommands, executeDBCommands } from '@/lib/db-command-parser';
 import { buildKnowledgeContext } from '@/lib/knowledge-prompt';
 import { dbLog } from '@/db/logger';
 import { renderMarkdown } from '@/lib/markdown-renderer';
-import { StreamBuffer } from '@/lib/stream-buffer';
 import ModeSwitcher from '@/components/chat/mode-switcher';
 import AssessmentResultCard from '@/components/chat/assessment-result-card';
 import type { ChatMode, AssessmentResult } from '@/types/knowledge';
@@ -652,36 +651,28 @@ export default function AIChatScreen() {
 
         // ── 流式传输 ──
         const aiMsgId = generateId();
-        const streamBuffer = new StreamBuffer();
         let aiMsgCreated = false;
         let previousText = '';
 
         fullReply = await sendChatMessageStream(
           currentForApi,
           (streamingText: string) => {
-            // 仅将增量文本送入 StreamBuffer（避免重复累积）
-            const delta = streamingText.slice(previousText.length);
-            previousText = streamingText;
-            if (delta) {
-              streamBuffer.feed(delta);
-            }
-
             if (!aiMsgCreated) {
               // 首个 token — 创建 AI 消息占位
               const placeholderMsg: ChatMessage = {
                 id: aiMsgId,
                 role: 'assistant',
-                content: streamingText,
+                content: renderContent(streamingText),
                 timestamp: Date.now(),
               };
               dispatch({ type: 'ADD_MESSAGE', payload: placeholderMsg });
               aiMsgCreated = true;
               scrollToBottom();
             } else {
-              // 后续 token — 更新现有消息
+              // 后续 token — 更新现有消息（始终使用 renderContent 渲染）
               dispatch({
                 type: 'UPDATE_MESSAGE',
-                payload: { id: aiMsgId, content: streamingText },
+                payload: { id: aiMsgId, content: renderContent(streamingText) },
               });
             }
           },
@@ -695,7 +686,7 @@ export default function AIChatScreen() {
         streamBuffer.flush(); // 清空缓冲，确保完整文本已通过 onChunk 传递
         dispatch({
           type: 'UPDATE_MESSAGE',
-          payload: { id: aiMsgId, content: fullReply },
+          payload: { id: aiMsgId, content: renderContent(fullReply) },
         });
 
         // 提取并执行 DB 指令
@@ -728,7 +719,7 @@ export default function AIChatScreen() {
         // 最终更新消息内容为过滤后的展示文本
         dispatch({
           type: 'UPDATE_MESSAGE',
-          payload: { id: aiMsgId, content: displayContent },
+          payload: { id: aiMsgId, content: renderContent(displayContent) },
         });
         dispatch({ type: 'SET_LOADING', payload: false });
         scrollToBottom();
@@ -751,7 +742,7 @@ export default function AIChatScreen() {
               const placeholderMsg: ChatMessage = {
                 id: aiMsgId,
                 role: 'assistant',
-                content: streamingText,
+                content: renderContent(streamingText),
                 timestamp: Date.now(),
               };
               dispatch({ type: 'ADD_MESSAGE', payload: placeholderMsg });
@@ -760,7 +751,7 @@ export default function AIChatScreen() {
             } else {
               dispatch({
                 type: 'UPDATE_MESSAGE',
-                payload: { id: aiMsgId, content: streamingText },
+                payload: { id: aiMsgId, content: renderContent(streamingText) },
               });
             }
           },
@@ -771,7 +762,7 @@ export default function AIChatScreen() {
         const parsed = parseAIResponse(fullReply);
         dispatch({
           type: 'UPDATE_MESSAGE',
-          payload: { id: aiMsgId, content: fullReply, parsed },
+          payload: { id: aiMsgId, content: renderContent(fullReply), parsed },
         });
 
         dispatch({ type: 'SET_LOADING', payload: false });
