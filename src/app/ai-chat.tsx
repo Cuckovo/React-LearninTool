@@ -79,7 +79,7 @@ function renderContent(rawText: string): string {
 function renderLatex(text: string): string {
   const tokens: { type: 'text' | 'display' | 'inline'; content: string }[] = [];
 
-  // 改进的正则：处理 $$...$$ 和 $...$，在含 HTML 的文本中更鲁棒
+  // 正则：$$...$$ 或 $...$（不含换行）
   const combinedRegex = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -92,11 +92,9 @@ function renderLatex(text: string): string {
 
     const raw = match[0];
     if (raw.startsWith('$$')) {
-      // 块级公式：去掉 $$ 包裹
       const latex = raw.slice(2, -2).trim();
       tokens.push({ type: 'display', content: latex });
     } else {
-      // 行内公式：去掉 $ 包裹
       const latex = raw.slice(1, -1).trim();
       tokens.push({ type: 'inline', content: latex });
     }
@@ -109,16 +107,19 @@ function renderLatex(text: string): string {
     tokens.push({ type: 'text', content: text.slice(lastIndex) });
   }
 
-  // 如果没有找到任何公式，直接返回原始 HTML（由 renderMarkdown 生成，不含用户输入的裸 HTML，安全）
+  // 没有公式 → 直接返回
   if (tokens.every((t) => t.type === 'text')) {
     return text;
   }
 
-  // 渲染所有 token 为 HTML
+  // 逐 token 渲染
   return tokens
     .map((token) => {
       if (token.type === 'text') {
-        return escapeHtml(token.content);
+        // 文本 token：仅转义纯文本中的 < > 等，但保留已有 HTML 标签
+        // 判断：如果文本中包含 HTML 标签（如 <strong>、<br/>、<h3>），不转义
+        const hasHtml = /<[a-zA-Z][^>]*>/.test(token.content);
+        return hasHtml ? token.content : escapeHtml(token.content);
       }
       try {
         const isDisplay = token.type === 'display';
