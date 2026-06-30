@@ -213,35 +213,37 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
   <!-- ==================== 第4页：页面2 — AI 对话助手 ==================== -->
   <section class="slide" data-title="AI 对话助手">
     <p class="kicker">page-02 / 第二个 Tab</p>
-    <h2 class="h2">🤖 AI 对话助手页面</h2>
-    <p class="lede" style="font-size:17px">核心交互页面 — 用户与 DeepSeek AI 进行高等数学对话，分步解题 + 自动绘图联动。</p>
+    <h2 class="h2">AI 对话 — 中枢调度</h2>
+    <p class="lede" style="font-size:17px">AI 对话是整个应用的枢纽 — 向上接入 DeepSeek 大模型解答数学问题，向下驱动 GeoGebra 实时绘图，横向联动知识库沉淀学习成果。</p>
 
     <div class="row mt-m" style="align-items:stretch;gap:24px">
       <div style="flex:1;min-width:280px">
-        <div class="card-feature">
-          <h3 style="font-size:20px">核心功能</h3>
+        <!-- 与 GeoGebra 的交互 -->
+        <div class="card-feature" style="border-top-color:#1e5ac4">
+          <h3 style="font-size:20px;color:#1e5ac4">AI 对话 → GeoGebra 绘图</h3>
           <div class="stack" style="font-size:15px;line-height:1.8">
-            <div class="dim">💬 <strong>对话交互</strong>：多行输入 + 发送 + 加载动画</div>
-            <div class="dim">🧠 <strong>结构化输出</strong>：强制三段式格式</div>
-            <div class="dim">📊 <strong>输出解析</strong>：正则提取解题过程 / 图像判断 / 函数表达式</div>
-            <div class="dim">📝 <strong>历史管理</strong>：侧滑抽屉 + 多会话切换 + 最多 10 会话</div>
-            <div class="dim">🎯 <strong>操作按钮</strong>：绘制图像 / 分享过程</div>
+            <div class="dim">对话中 AI 返回函数表达式，前端自动解析</div>
+            <div class="dim">提取后 dispatch SEND_PLOT_COMMAND 推送绘图命令</div>
+            <div class="dim">GeoGebra 实时接收并渲染，无需手动输入</div>
+            <div class="dim">一键"绘制图像"按钮也可手动触发</div>
           </div>
         </div>
 
-        <div class="card mt-s" style="border-left:3px solid #1e5ac4;padding:20px 24px">
-          <p style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-2);margin:0;line-height:1.7">
-            <strong style="color:#0a1e46">AI 格式化输出：</strong><br>
-            <span style="color:#1e5ac4">【解题过程】</span> → 分步解答<br>
-            <span style="color:#1e5ac4">【图像判断】</span> → 可绘制 / 不可绘制<br>
-            <span style="color:#1e5ac4">【函数表达式】</span> → f(x) = sin(x)
-          </p>
+        <!-- 与知识库的交互 -->
+        <div class="card-feature mt-m" style="border-top-color:var(--brand)">
+          <h3 style="font-size:20px;color:var(--brand-dark)">AI 对话 → 知识库沉淀</h3>
+          <div class="stack" style="font-size:15px;line-height:1.8">
+            <div class="dim">知识库"去学习"跳转到 AI 对话页，注入节点上下文</div>
+            <div class="dim">AI 教学后触发考核，评分结果自动生成笔记建议</div>
+            <div class="dim">DB 指令块解析后自动写入 userNotes + masteryStatus</div>
+            <div class="dim">返回知识库时已更新掌握状态，形成完整闭环</div>
+          </div>
         </div>
       </div>
 
       <div style="flex:1.2;min-width:320px">
         <div class="screenshot-placeholder">
-          <div class="ph-icon">🤖</div>
+          <div class="ph-icon">💬</div>
           <div class="ph-text">【界面截图占位】<br>AI 对话页面<br><br>请在演示时替换此框为实际截图</div>
         </div>
       </div>
