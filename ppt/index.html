@@ -98,13 +98,13 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
     </p>
     <div class="row mt-l" style="gap:16px">
       <span class="tag">📐 GeoGebra</span>
-      <span class="tag">🤖 DeepSeek AI</span>
-      <span class="tag">📦 知识库</span>
       <span class="tag">⚛️ React 19 + Expo 56</span>
     </div>
     <div class="speaker mt-l" style="display:flex;align-items:center;gap:14px">
-      <div class="av" style="width:52px;height:52px;border-radius:0;background:linear-gradient(135deg,#90c208,#1e5ac4)"></div>
-      <div><b style="font-size:17px">开发团队</b><span style="color:var(--text-3);font-size:13px;font-family:'JetBrains Mono',monospace">跨平台 · AI 驱动 · 教育工具</span></div>
+      <div class="av" style="width:52px;height:52px;border-radius:0;overflow:hidden;background:#fff;border:2px solid rgba(10,30,70,.1);display:flex;align-items:center;justify-content:center">
+        <img src="https://workbuddy.ai/favicon.ico" alt="WorkBuddy" style="width:36px;height:36px" onerror="this.style.display='none';this.parentElement.textContent='WB'">
+      </div>
+      <div><b style="font-size:17px">WorkBuddy</b><span style="color:var(--text-3);font-size:13px;font-family:'JetBrains Mono',monospace">跨平台 · AI 驱动 · 教育工具</span></div>
     </div>
     <div class="deck-footer">
       <span class="mono">#learntools #geogebra #deepseek #react-native #expo</span>
@@ -121,34 +121,43 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
     </p>
 
     <div class="row mt-l" style="align-items:stretch;gap:24px">
-      <div class="card-feature" style="flex:1">
-        <h3><span class="emoji">🎯</span> 产品定位</h3>
-        <p class="dim" style="font-size:15px;line-height:1.6">
-          通过对 AI 的自然对话，不仅解答数学问题，还能构建、维护个人知识库——从大纲定制到知识校验、笔记沉淀，形成可检索、可检测的知识网络。
-        </p>
-      </div>
-      <div class="card-feature" style="flex:1">
-        <h3><span class="emoji">⚡</span> 核心设计</h3>
-        <p class="dim" style="font-size:15px;line-height:1.6">
-          <span class="mono" style="color:var(--brand-dark)">AI 对话</span> → 分步解题 & 答疑<br>
-          <span class="mono" style="color:var(--brand-dark)">AI 输出</span> → 自动提取函数表达式<br>
-          <span class="mono" style="color:var(--brand-dark)">GeoGebra</span> → 实时渲染函数图像
-        </p>
+      <div class="card-feature" style="flex:1;display:flex;flex-direction:column;align-items:center;text-align:center">
+        <h3 style="justify-content:center">⚡ 核心设计</h3>
+        <!-- SVG 交叉连线图：三节点两两连通 -->
+        <svg viewBox="0 0 360 200" style="width:100%;max-width:360px;margin-top:16px">
+          <!-- 连线 -->
+          <line x1="65" y1="45" x2="295" y2="45" stroke="var(--brand)" stroke-width="2" stroke-dasharray="6,4"/>
+          <line x1="65" y1="45" x2="180" y2="170" stroke="#1e5ac4" stroke-width="2" stroke-dasharray="6,4"/>
+          <line x1="295" y1="45" x2="180" y2="170" stroke="#1e5ac4" stroke-width="2" stroke-dasharray="6,4"/>
+          <!-- AI 对话节点 -->
+          <circle cx="65" cy="45" r="28" fill="rgba(144,194,8,.12)" stroke="var(--brand)" stroke-width="2"/>
+          <text x="65" y="40" text-anchor="middle" font-size="22">🤖</text>
+          <text x="65" y="60" text-anchor="middle" font-size="9" fill="#0a1e46" font-family="Inter,Noto Sans SC,sans-serif" font-weight="600">AI 对话</text>
+          <!-- AI 输出节点 -->
+          <circle cx="295" cy="45" r="28" fill="rgba(144,194,8,.12)" stroke="var(--brand)" stroke-width="2"/>
+          <text x="295" y="40" text-anchor="middle" font-size="22">🧠</text>
+          <text x="295" y="60" text-anchor="middle" font-size="9" fill="#0a1e46" font-family="Inter,Noto Sans SC,sans-serif" font-weight="600">AI 输出</text>
+          <!-- GeoGebra 节点 -->
+          <circle cx="180" cy="170" r="28" fill="rgba(30,90,196,.12)" stroke="#1e5ac4" stroke-width="2"/>
+          <text x="180" y="165" text-anchor="middle" font-size="22">📐</text>
+          <text x="180" y="185" text-anchor="middle" font-size="9" fill="#0a1e46" font-family="Inter,Noto Sans SC,sans-serif" font-weight="600">GeoGebra</text>
+          <!-- 标签 -->
+          <text x="180" y="35" text-anchor="middle" font-size="10" fill="var(--brand-dark)" font-family="JetBrains Mono,monospace">分步解题 & 答疑</text>
+          <text x="120" y="115" text-anchor="middle" font-size="10" fill="#1e5ac4" font-family="JetBrains Mono,monospace">提取函数表达式</text>
+          <text x="240" y="115" text-anchor="middle" font-size="10" fill="#1e5ac4" font-family="JetBrains Mono,monospace">实时渲染图像</text>
+        </svg>
       </div>
     </div>
 
     <!-- 技术栈 -->
     <div class="mt-l">
       <p class="kicker" style="margin-bottom:8px">技术栈</p>
-      <div class="tech-grid">
+      <div class="tech-grid" style="grid-template-columns:repeat(5,1fr)">
         <div class="tech-item"><div class="ti-name">React Native</div><div class="ti-ver">0.85.3</div></div>
-        <div class="tech-item"><div class="ti-name">Expo SDK</div><div class="ti-ver">v56</div></div>
-        <div class="tech-item"><div class="ti-name">TypeScript</div><div class="ti-ver">6.0 Strict</div></div>
-        <div class="tech-item"><div class="ti-name">NativeWind</div><div class="ti-ver">Tailwind CSS</div></div>
-        <div class="tech-item"><div class="ti-name">DeepSeek Chat</div><div class="ti-ver">API v1</div></div>
-        <div class="tech-item"><div class="ti-name">GeoGebra</div><div class="ti-ver">v5.4 Offline</div></div>
-        <div class="tech-item"><div class="ti-name">expo-sqlite</div><div class="ti-ver">Drizzle ORM</div></div>
-        <div class="tech-item"><div class="ti-name">expo-router</div><div class="ti-ver">3-Tab Nav</div></div>
+        <div class="tech-item"><div class="ti-name">Expo</div><div class="ti-ver">SDK 56</div></div>
+        <div class="tech-item"><div class="ti-name">TypeScript</div><div class="ti-ver">6.0</div></div>
+        <div class="tech-item"><div class="ti-name">Tailwind CSS</div><div class="ti-ver">NativeWind</div></div>
+        <div class="tech-item"><div class="ti-name">SQLite</div><div class="ti-ver">expo-sqlite</div></div>
       </div>
     </div>
 
@@ -444,10 +453,10 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
         <span class="tag">📦 知识库闭环</span>
       </div>
       <p class="dim mt-l" style="font-size:14px;font-family:'JetBrains Mono',monospace">
-        React Native · Expo SDK 56 · TypeScript · NativeWind
+        React Native · Expo SDK 56 · TypeScript · Tailwind CSS · SQLite
       </p>
       <p class="dim2" style="font-size:13px;font-family:'JetBrains Mono',monospace;margin-top:6px">
-        github.com/Cuckovo/MathLearningTool — 原始项目
+        Powered by WorkBuddy — AI Agent 驱动的开发工具链
       </p>
     </div>
     <div class="deck-footer">
