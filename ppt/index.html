@@ -9,12 +9,9 @@
 <link rel="stylesheet" href="assets/themes/engineering-whiteprint.css">
 <style>
 /* ===== 伴学知识库 PPT 定制样式 ===== */
-body{background:
-  repeating-linear-gradient(0deg,rgba(10,30,70,.06) 0 1px,transparent 1px 40px),
-  repeating-linear-gradient(90deg,rgba(10,30,70,.06) 0 1px,transparent 1px 40px),
-  #ffffff}
-
-.slide{padding:68px 88px}
+/* 修复：让坐标纸网格背景从 .deck 下透出来 */
+.deck{background:transparent!important}
+.slide{background:transparent;padding:68px 88px}
 
 /* 封面大字 */
 .h1-hero{font-family:'Inter','Noto Sans SC',sans-serif;font-size:68px;line-height:1.08;font-weight:800;letter-spacing:-.03em;color:var(--text-1);margin:0}
