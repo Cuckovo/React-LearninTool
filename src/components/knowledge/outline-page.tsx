@@ -28,7 +28,11 @@ export default function OutlinePage({ onSelectNode, selectedNodeId }: OutlinePag
 
   const loadData = useCallback(async () => {
     try {
-      // 确保种子数据已初始化（幂等，作为 app-state 之外的第二道防线）
+      // 使用异步 getExpoDb() 确保 Web 端 Worker 已就绪
+      const { getExpoDb } = await import('@/db/database');
+      await getExpoDb();
+
+      // 确保种子数据已初始化（幂等）
       await service.initializeDemoData();
 
       const [fullTree, progress] = await Promise.all([

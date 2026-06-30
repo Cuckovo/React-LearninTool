@@ -5,65 +5,44 @@ import { dbLog } from './logger';
 /** 懒初始化的 expo-sqlite 数据库实例 */
 let _expoDb: SQLiteDatabase | null = null;
 
-/** 初始化 Promise 一次性锁 */
+/** 初始化 Promise 单例 */
 let _dbPromise: Promise<SQLiteDatabase> | null = null;
-
-/** 上一次网络 ping 的时间戳，用于检测 reload 场景 */
-let _lastPing: number = 0;
-
-/** 单例锁：防止 StrictMode 或热重载导致双重初始化 */
-let _initLock = false;
 
 /**
  * 获取 expo-sqlite 原生数据库实例（平台自适应懒初始化）。
  *
- * - Web：openDatabaseAsync（Worker + OPFS）
- * - Native：openDatabaseSync
+ * - Web：openDatabaseAsync（Worker + OPFS），返回 Promise
+ * - Native：openDatabaseSync，包装为 Promise
+ *
+ * 多调用者安全：_dbPromise 单例确保只初始化一次。
  */
 export function getExpoDb(): Promise<SQLiteDatabase> {
   if (_expoDb) return Promise.resolve(_expoDb);
+  if (_dbPromise) return _dbPromise;
 
-  if (!_dbPromise) {
-    _dbPromise = (async () => {
-      // Web 端 StrictMode / 热重载保护：如果初始化正在进行中，第二个调用者等待
-      while (_initLock) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        if (_expoDb) {
-          dbLog.info('数据库初始化：检测到并发等待，复用已初始化的实例');
-          return _expoDb;
-        }
-      }
-      _initLock = true;
+  _dbPromise = (async () => {
+    const initPlatform = Platform.OS === 'web' ? 'web' : 'native';
+    dbLog.info(`初始化数据库 (${initPlatform})...`);
 
-      const initPlatform = Platform.OS === 'web' ? 'web' : 'native';
-      dbLog.info(`初始化数据库 (${initPlatform})...`);
+    const { openDatabaseAsync, openDatabaseSync } = await import('expo-sqlite');
 
-      try {
-        const { openDatabaseAsync, openDatabaseSync } = await import('expo-sqlite');
+    if (Platform.OS === 'web') {
+      _expoDb = await openDatabaseAsync('learntools.db');
+    } else {
+      _expoDb = openDatabaseSync('learntools.db');
+    }
 
-        if (Platform.OS === 'web') {
-          _expoDb = await openDatabaseAsync('learntools.db');
-        } else {
-          _expoDb = openDatabaseSync('learntools.db');
-        }
+    dbLog.info(`数据库初始化完成 (${initPlatform})`);
 
-        dbLog.info(`数据库初始化完成 (${initPlatform})`);
+    // 启用外键约束
+    await _expoDb.execAsync('PRAGMA foreign_keys = ON');
+    // 创建表结构
+    await createTablesIfNeeded(_expoDb);
+    // 执行增量迁移
+    await runMigrations(_expoDb);
 
-        // 启用外键约束（expo-sqlite 默认不启用）
-        await _expoDb.execAsync('PRAGMA foreign_keys = ON');
-
-        // 创建表结构
-        await createTablesIfNeeded(_expoDb);
-
-        // 执行增量迁移
-        await runMigrations(_expoDb);
-      } finally {
-        _initLock = false;
-      }
-
-      return _expoDb;
-    })();
-  }
+    return _expoDb;
+  })();
 
   return _dbPromise;
 }

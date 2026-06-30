@@ -279,27 +279,36 @@ const AppContext = createContext<{
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // 启动时：串行初始化（Web 端 expo-sqlite OPFS 不支持并发 Access Handles）
+  // 启动时：初始化数据库，然后异步加载数据。
+  // Web 端 expo-sqlite 使用 OPFS Worker 后端，所有 DB 操作必须串行。
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
-        // 0. 懒初始化数据库连接（Web 端需要异步上下文）
-        await getExpoDb();
+        // 0. 初始化数据库连接（幂等，Web 端异步 Worker 初始化）
+        const db = await getExpoDb();
+        if (cancelled) return;
         // 1. 尝试从 AsyncStorage 迁移旧数据（幂等）
         await migrateFromAsyncStorage();
+        if (cancelled) return;
         // 2. 初始化知识库种子数据（幂等，仅在 knowledge_nodes 为空时插入）
         dbLog.info('开始初始化知识库种子数据...');
         await initializeDemoData();
+        if (cancelled) return;
         dbLog.info('知识库种子数据初始化完成');
         // 3. 从 SQLite 加载所有会话
         const sessions: ChatSession[] = await getAllSessions();
+        if (cancelled) return;
         dbLog.info(`加载 ${sessions.length} 个会话`);
         dispatch({ type: 'LOAD_SESSIONS', payload: sessions });
       } catch (err) {
-        dbLog.error('加载会话失败', err);
-        dispatch({ type: 'LOAD_SESSIONS', payload: [] });
+        if (!cancelled) {
+          dbLog.error('加载会话失败', err);
+          dispatch({ type: 'LOAD_SESSIONS', payload: [] });
+        }
       }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   const currentMessages = getCurrentMessages(state);
