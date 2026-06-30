@@ -222,11 +222,11 @@ function ChatBubble({
  */
 function RenderContent({ content, isWeb }: { content: string; isWeb: boolean }) {
   if (isWeb) {
-    const html = renderContent(content);
+    // content 已在上游通过 renderContent() 渲染为 HTML，直接注入
     return (
       <div
         className="text-sk-sm text-sk-text-primary katex-content"
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: content }}
       />
     );
   }
@@ -650,27 +650,26 @@ export default function AIChatScreen() {
         // ── 流式传输 ──
         const aiMsgId = generateId();
         let aiMsgCreated = false;
-        let previousText = '';
 
         fullReply = await sendChatMessageStream(
           currentForApi,
           (streamingText: string) => {
             if (!aiMsgCreated) {
-              // 首个 token — 创建 AI 消息占位
+              // 首个 token — 创建 AI 消息占位（显示原始文本，流式不走渲染管道）
               const placeholderMsg: ChatMessage = {
                 id: aiMsgId,
                 role: 'assistant',
-                content: renderContent(streamingText),
+                content: streamingText,
                 timestamp: Date.now(),
               };
               dispatch({ type: 'ADD_MESSAGE', payload: placeholderMsg });
               aiMsgCreated = true;
               scrollToBottom();
             } else {
-              // 后续 token — 更新现有消息（始终使用 renderContent 渲染）
+              // 后续 token — 更新原始文本（打字机效果，不渲染）
               dispatch({
                 type: 'UPDATE_MESSAGE',
-                payload: { id: aiMsgId, content: renderContent(streamingText) },
+                payload: { id: aiMsgId, content: streamingText },
               });
             }
           },
@@ -680,7 +679,7 @@ export default function AIChatScreen() {
           },
         );
 
-        // 流结束 — 做最终更新
+        // 流结束 — 一次性执行 Markdown + KaTeX 渲染
         dispatch({
           type: 'UPDATE_MESSAGE',
           payload: { id: aiMsgId, content: renderContent(fullReply) },
@@ -739,7 +738,7 @@ export default function AIChatScreen() {
               const placeholderMsg: ChatMessage = {
                 id: aiMsgId,
                 role: 'assistant',
-                content: renderContent(streamingText),
+                content: streamingText,
                 timestamp: Date.now(),
               };
               dispatch({ type: 'ADD_MESSAGE', payload: placeholderMsg });
@@ -748,7 +747,7 @@ export default function AIChatScreen() {
             } else {
               dispatch({
                 type: 'UPDATE_MESSAGE',
-                payload: { id: aiMsgId, content: renderContent(streamingText) },
+                payload: { id: aiMsgId, content: streamingText },
               });
             }
           },
