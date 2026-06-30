@@ -167,38 +167,31 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
     </div>
   </section>
 
-  <!-- ==================== 第3页：页面1 — GeoGebra 绘图 ==================== -->
-  <section class="slide" data-title="GeoGebra 绘图">
+  <!-- ==================== 第3页：GeoGebra 工具介绍 ==================== -->
+  <section class="slide" data-title="GeoGebra 介绍">
     <p class="kicker">page-01 / 首页 Tab</p>
-    <h2 class="h2">📐 GeoGebra 绘图页面</h2>
-    <p class="lede" style="font-size:17px">用户打开应用首先看到的页面 — 嵌入完整的 GeoGebra 图形计算器，支持离线加载。</p>
+    <h2 class="h2">📐 GeoGebra — 动态数学引擎</h2>
+    <p class="lede" style="font-size:17px">全球领先的开源数学可视化工具 — 将抽象公式转化为交互式图形，让数学看得见、摸得着。</p>
 
     <div class="row mt-m" style="align-items:stretch;gap:24px">
-      <!-- 左侧：功能说明 -->
+      <!-- 左侧：GeoGebra 介绍 -->
       <div style="flex:1;min-width:280px">
         <div class="card-feature">
-          <h3 style="font-size:20px">核心能力</h3>
-          <div class="stack" style="font-size:15px;line-height:1.8">
-            <div class="dim">✅ 离线渲染 GeoGebra 图形计算器</div>
-            <div class="dim">✅ 支持缩放 / 平移 / 函数输入</div>
-            <div class="dim">✅ 双平台加载（Android WebView + Web iframe）</div>
-            <div class="dim">✅ 加载状态 + 错误提示（品牌色动画）</div>
-            <div class="dim">✅ 接收 AI 传来的绘图命令</div>
-          </div>
-          <div class="row mt-s" style="gap:10px;flex-wrap:wrap">
-            <span class="tag">48MB 精简包</span>
-            <span class="tag">v5.4.925.3</span>
-            <span class="tag">离线可用</span>
-          </div>
+          <h3 style="font-size:20px">什么是 GeoGebra？</h3>
+          <p class="dim" style="font-size:15px;line-height:1.7;margin-bottom:14px">
+            GeoGebra 是一个<strong>免费的动态数学软件</strong>，集几何、代数、微积分、统计于一体。输入一个函数表达式，立刻看到它的图像。拖拽、缩放、变换 — 所有操作都是实时的。
+          </p>
         </div>
 
-        <div class="card mt-m" style="border-left:3px solid var(--brand);padding:20px 24px">
-          <p style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-2);margin:0">
-            <strong style="color:#0a1e46">技术方案：</strong><br>
-            Android → <span style="color:var(--brand-dark)">file:///android_asset/</span><br>
-            Web → <span style="color:var(--brand-dark)">Metro dev serve + iframe</span><br>
-            原始 115MB → 删除 web3d/webSimple → 48MB
-          </p>
+        <div class="card-feature mt-m" style="border-top-color:#1e5ac4">
+          <h3 style="font-size:20px">核心特性</h3>
+          <div class="stack" style="font-size:15px;line-height:1.8">
+            <div class="dim">📐 <strong>函数绘图</strong>：支持 f(x)、参数方程、极坐标、隐函数</div>
+            <div class="dim">📏 <strong>几何构造</strong>：点、线、圆、多边形 — 欧几里得几何全支持</div>
+            <div class="dim">📊 <strong>3D 可视化</strong>：立体几何、空间曲面直观展示</div>
+            <div class="dim">🧮 <strong>代数运算</strong>：CAS 符号计算引擎，支持求导积分</div>
+            <div class="dim">📱 <strong>全平台</strong>：Web / iOS / Android / Windows / Mac / Linux</div>
+          </div>
         </div>
       </div>
 
@@ -212,7 +205,7 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
     </div>
 
     <div class="deck-footer">
-      <span class="mono">文件：src/app/index.tsx</span>
+      <span class="mono">官网：geogebra.org &nbsp;|&nbsp; 开源协议：GPL / CC BY-NC-SA</span>
       <span class="slide-number" data-current="3" data-total="8"></span>
     </div>
   </section>
