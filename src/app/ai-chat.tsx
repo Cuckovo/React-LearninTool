@@ -77,12 +77,10 @@ function renderContent(rawText: string): string {
  * @returns 包含 HTML 的字符串
  */
 function renderLatex(text: string): string {
-  // 使用非贪婪匹配，按顺序处理 $$...$$ 和 $...$
-  // 使用一个统一的 tokenizer 来避免 $ 和 $$ 冲突
   const tokens: { type: 'text' | 'display' | 'inline'; content: string }[] = [];
 
-  // 先用正则找到所有公式
-  const combinedRegex = /(\$\$[\s\S]*?\$\$|\$(?!\$)[\s\S]*?\$(?!\$))/g;
+  // 改进的正则：处理 $$...$$ 和 $...$，在含 HTML 的文本中更鲁棒
+  const combinedRegex = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 

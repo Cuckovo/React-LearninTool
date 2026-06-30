@@ -26,8 +26,8 @@ function protectLatex(text: string): { protectedText: string; segments: Protecte
   const segments: ProtectedSegment[] = [];
   let counter = 0;
 
-  // 使用统一的 tokenizer，先匹配 $$...$$ 再匹配 $...$
-  const combinedRegex = /(\$\$[\s\S]*?\$\$|\$(?!\$)[\s\S]*?\$(?!\$))/g;
+  // 改进的正则：$$...$$ 和 $...$（不支持跨行$）
+  const combinedRegex = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g;
 
   const protectedText = text.replace(combinedRegex, (match) => {
     const placeholder = `\x00LATEX_${counter}\x00`;
