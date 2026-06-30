@@ -189,6 +189,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, sessions: action.payload, loaded: true };
     case 'SET_CHAT_MODE': {
       const newMode = action.payload;
+      // 如果当前已是目标模式，不做切换（避免重复新建 session）
+      if (state.activeChatMode === newMode) return state;
       // 切换模式时新建对应 type 的 session
       const newSessionId = generateId();
       const title = newMode === 'knowledge' ? '知识库学习' : '新对话';
