@@ -682,8 +682,7 @@ export default function AIChatScreen() {
           },
         );
 
-        // 流结束 — flush 缓冲中的剩余内容并做最终更新
-        streamBuffer.flush(); // 清空缓冲，确保完整文本已通过 onChunk 传递
+        // 流结束 — 做最终更新
         dispatch({
           type: 'UPDATE_MESSAGE',
           payload: { id: aiMsgId, content: renderContent(fullReply) },
