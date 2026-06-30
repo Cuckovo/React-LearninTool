@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>伴学知识库 — 项目介绍</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/animations/animations.css">
+<link rel="stylesheet" href="assets/themes/engineering-whiteprint.css">
+<style>
+/* ===== 伴学知识库 PPT 定制样式 ===== */
+body{background:
+  repeating-linear-gradient(0deg,rgba(10,30,70,.06) 0 1px,transparent 1px 40px),
+  repeating-linear-gradient(90deg,rgba(10,30,70,.06) 0 1px,transparent 1px 40px),
+  #ffffff}
+
+.slide{padding:68px 88px}
+
+/* 封面大字 */
+.h1-hero{font-family:'Inter','Noto Sans SC',sans-serif;font-size:68px;line-height:1.08;font-weight:800;letter-spacing:-.03em;color:var(--text-1);margin:0}
+
+/* Brand green accent */
+:root{--brand:#90c208;--brand-light:#c8eb21;--brand-dark:#6a8e06}
+.accent-brand{color:var(--brand)}
+.bg-brand{background:var(--brand)}
+.bg-brand-soft{background:rgba(144,194,8,.08)}
+
+h2.title,.h2{font-family:'Inter','Noto Sans SC',sans-serif;font-size:48px;font-weight:700;letter-spacing:-.02em;color:#0a1e46}
+h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
+.kicker{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--brand);letter-spacing:.12em}
+.kicker::before{content:"> "}
+
+/* 卡片系统 */
+.card{border:1.5px solid rgba(10,30,70,.18);background:rgba(255,255,255,.9);padding:28px 32px}
+.card-feature{border-top:4px solid var(--brand);padding:32px}
+.card-linkage{border-left:4px solid #1e5ac4;padding:24px 28px;background:rgba(30,90,196,.04)}
+.card-feature h3{font-size:24px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.card-feature h3 .emoji{font-size:32px}
+
+/* 截图占位框 */
+.screenshot-placeholder{
+  width:100%;aspect-ratio:16/9;
+  border:2.5px dashed rgba(10,30,70,.2);
+  background:linear-gradient(135deg,rgba(144,194,8,.03),rgba(30,90,196,.04));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+  margin:16px 0
+}
+.screenshot-placeholder::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(10,30,70,.03) 19px,rgba(10,30,70,.03) 20px),
+             repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(10,30,70,.03) 19px,rgba(10,30,70,.03) 20px);
+  pointer-events:none
+}
+.screenshot-placeholder .ph-icon{font-size:48px;margin-bottom:8px;opacity:.25;position:relative;z-index:1}
+.screenshot-placeholder .ph-text{font-size:14px;color:var(--text-3);font-family:'JetBrains Mono',monospace;position:relative;z-index:1;text-align:center}
+
+/* 流程图 */
+.flow-box{display:flex;align-items:center;gap:24px;justify-content:center;flex-wrap:wrap}
+.flow-step{background:rgba(255,255,255,.95);border:1.5px solid rgba(10,30,70,.2);padding:20px 24px;text-align:center;min-width:140px;position:relative}
+.flow-step .fs-label{font-size:16px;font-weight:600;color:#0a1e46}
+.flow-step .fs-desc{font-size:12px;color:var(--text-3);margin-top:4px;font-family:'JetBrains Mono',monospace}
+.flow-arrow{font-size:24px;color:var(--brand);font-weight:700}
+
+/* Tag标签 */
+.tag{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;border:1.5px solid rgba(10,30,70,.2);color:var(--text-2)}
+.tag-future{border-color:var(--accent-2);color:var(--accent-2);background:rgba(30,90,196,.06)}
+
+/* 数字高亮 */
+.big-num{font-family:'Inter',sans-serif;font-size:56px;font-weight:800;color:var(--brand);line-height:1}
+
+/* 技术栈网格 */
+.tech-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
+.tech-item{background:rgba(255,255,255,.8);border:1.5px solid rgba(10,30,70,.12);padding:14px 16px;text-align:center}
+.tech-item .ti-name{font-weight:600;font-size:15px;color:#0a1e46}
+.tech-item .ti-ver{font-size:11px;color:var(--text-3);font-family:'JetBrains Mono',monospace;margin-top:2px}
+
+/* 联动突出 */
+.linkage-highlight{background:linear-gradient(135deg,rgba(144,194,8,.08),rgba(30,90,196,.08));border:2px solid var(--brand);padding:36px 40px;margin-top:20px}
+
+/* 响应式 */
+@media(max-width:768px){
+  .slide{padding:44px 36px}
+  .h1-hero{font-size:38px}
+  .h2{font-size:30px!important}
+  .tech-grid{grid-template-columns:repeat(2,1fr)}
+  .flow-box{flex-direction:column;gap:12px}
+}
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <!-- ==================== 第1页：封面 ==================== -->
+  <section class="slide" data-title="封面">
+    <p class="kicker">project-intro / 2026</p>
+    <h1 class="h1-hero anim-fade-up" data-anim="fade-up">伴学知识库<br><span style="background:linear-gradient(135deg,#90c208,#1e5ac4);-webkit-background-clip:text;background-clip:text;color:transparent">LearnTools</span></h1>
+    <p class="lede mt-m" style="font-size:20px;max-width:54ch">
+      基于 Expo + React Native 的跨平台 AI 交互学习工具<br>
+      集成 GeoGebra 图形计算器 + DeepSeek AI 对话 — 让高数不再抽象。
+    </p>
+    <div class="row mt-l" style="gap:16px">
+      <span class="tag">📐 GeoGebra</span>
+      <span class="tag">🤖 DeepSeek AI</span>
+      <span class="tag">📦 知识库</span>
+      <span class="tag">⚛️ React 19 + Expo 56</span>
+    </div>
+    <div class="speaker mt-l" style="display:flex;align-items:center;gap:14px">
+      <div class="av" style="width:52px;height:52px;border-radius:0;background:linear-gradient(135deg,#90c208,#1e5ac4)"></div>
+      <div><b style="font-size:17px">开发团队</b><span style="color:var(--text-3);font-size:13px;font-family:'JetBrains Mono',monospace">跨平台 · AI 驱动 · 教育工具</span></div>
+    </div>
+    <div class="deck-footer">
+      <span class="mono">#learntools #geogebra #deepseek #react-native #expo</span>
+      <span class="slide-number" data-current="1" data-total="8"></span>
+    </div>
+  </section>
+
+  <!-- ==================== 第2页：项目简介 ==================== -->
+  <section class="slide" data-title="项目简介">
+    <p class="kicker">overview</p>
+    <h2 class="h2">项目简介</h2>
+    <p class="lede" style="font-size:18px;max-width:58ch">
+      伴学知识库是一套<strong style="color:var(--brand-dark)">以 AI Agent 为核心、学科工具为辅助</strong>的交互式学习系统。最初从 MathLearningTool 重构而来，目标是用 AI 帮你解题 + GeoGebra 帮你画图，打造一站式高数学习助手。
+    </p>
+
+    <div class="row mt-l" style="align-items:stretch;gap:24px">
+      <div class="card-feature" style="flex:1">
+        <h3><span class="emoji">🎯</span> 产品定位</h3>
+        <p class="dim" style="font-size:15px;line-height:1.6">
+          通过对 AI 的自然对话，不仅解答数学问题，还能构建、维护个人知识库——从大纲定制到知识校验、笔记沉淀，形成可检索、可检测的知识网络。
+        </p>
+      </div>
+      <div class="card-feature" style="flex:1">
+        <h3><span class="emoji">⚡</span> 核心设计</h3>
+        <p class="dim" style="font-size:15px;line-height:1.6">
+          <span class="mono" style="color:var(--brand-dark)">AI 对话</span> → 分步解题 & 答疑<br>
+          <span class="mono" style="color:var(--brand-dark)">AI 输出</span> → 自动提取函数表达式<br>
+          <span class="mono" style="color:var(--brand-dark)">GeoGebra</span> → 实时渲染函数图像
+        </p>
+      </div>
+    </div>
+
+    <!-- 技术栈 -->
+    <div class="mt-l">
+      <p class="kicker" style="margin-bottom:8px">技术栈</p>
+      <div class="tech-grid">
+        <div class="tech-item"><div class="ti-name">React Native</div><div class="ti-ver">0.85.3</div></div>
+        <div class="tech-item"><div class="ti-name">Expo SDK</div><div class="ti-ver">v56</div></div>
+        <div class="tech-item"><div class="ti-name">TypeScript</div><div class="ti-ver">6.0 Strict</div></div>
+        <div class="tech-item"><div class="ti-name">NativeWind</div><div class="ti-ver">Tailwind CSS</div></div>
+        <div class="tech-item"><div class="ti-name">DeepSeek Chat</div><div class="ti-ver">API v1</div></div>
+        <div class="tech-item"><div class="ti-name">GeoGebra</div><div class="ti-ver">v5.4 Offline</div></div>
+        <div class="tech-item"><div class="ti-name">expo-sqlite</div><div class="ti-ver">Drizzle ORM</div></div>
+        <div class="tech-item"><div class="ti-name">expo-router</div><div class="ti-ver">3-Tab Nav</div></div>
+      </div>
+    </div>
+
+    <div class="deck-footer">
+      <span class="mono">平台：Android + Web &nbsp;|&nbsp; 设计体系：Skland（品牌色 #90c208 / #c8eb21）</span>
+      <span class="slide-number" data-current="2" data-total="8"></span>
+    </div>
+  </section>
+
+  <!-- ==================== 第3页：页面1 — GeoGebra 绘图 ==================== -->
+  <section class="slide" data-title="GeoGebra 绘图">
+    <p class="kicker">page-01 / 首页 Tab</p>
+    <h2 class="h2">📐 GeoGebra 绘图页面</h2>
+    <p class="lede" style="font-size:17px">用户打开应用首先看到的页面 — 嵌入完整的 GeoGebra 图形计算器，支持离线加载。</p>
+
+    <div class="row mt-m" style="align-items:stretch;gap:24px">
+      <!-- 左侧：功能说明 -->
+      <div style="flex:1;min-width:280px">
+        <div class="card-feature">
+          <h3 style="font-size:20px">核心能力</h3>
+          <div class="stack" style="font-size:15px;line-height:1.8">
+            <div class="dim">✅ 离线渲染 GeoGebra 图形计算器</div>
+            <div class="dim">✅ 支持缩放 / 平移 / 函数输入</div>
+            <div class="dim">✅ 双平台加载（Android WebView + Web iframe）</div>
+            <div class="dim">✅ 加载状态 + 错误提示（品牌色动画）</div>
+            <div class="dim">✅ 接收 AI 传来的绘图命令</div>
+          </div>
+          <div class="row mt-s" style="gap:10px;flex-wrap:wrap">
+            <span class="tag">48MB 精简包</span>
+            <span class="tag">v5.4.925.3</span>
+            <span class="tag">离线可用</span>
+          </div>
+        </div>
+
+        <div class="card mt-m" style="border-left:3px solid var(--brand);padding:20px 24px">
+          <p style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-2);margin:0">
+            <strong style="color:#0a1e46">技术方案：</strong><br>
+            Android → <span style="color:var(--brand-dark)">file:///android_asset/</span><br>
+            Web → <span style="color:var(--brand-dark)">Metro dev serve + iframe</span><br>
+            原始 115MB → 删除 web3d/webSimple → 48MB
+          </p>
+        </div>
+      </div>
+
+      <!-- 右侧：截图占位 -->
+      <div style="flex:1.2;min-width:320px">
+        <div class="screenshot-placeholder">
+          <div class="ph-icon">📐</div>
+          <div class="ph-text">【界面截图占位】<br>GeoGebra 绘图页面<br><br>请在演示时替换此框为实际截图</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="deck-footer">
+      <span class="mono">文件：src/app/index.tsx</span>
+      <span class="slide-number" data-current="3" data-total="8"></span>
+    </div>
+  </section>
+
+  <!-- ==================== 第4页：页面2 — AI 对话助手 ==================== -->
+  <section class="slide" data-title="AI 对话助手">
+    <p class="kicker">page-02 / 第二个 Tab</p>
+    <h2 class="h2">🤖 AI 对话助手页面</h2>
+    <p class="lede" style="font-size:17px">核心交互页面 — 用户与 DeepSeek AI 进行高等数学对话，分步解题 + 自动绘图联动。</p>
+
+    <div class="row mt-m" style="align-items:stretch;gap:24px">
+      <div style="flex:1;min-width:280px">
+        <div class="card-feature">
+          <h3 style="font-size:20px">核心功能</h3>
+          <div class="stack" style="font-size:15px;line-height:1.8">
+            <div class="dim">💬 <strong>对话交互</strong>：多行输入 + 发送 + 加载动画</div>
+            <div class="dim">🧠 <strong>结构化输出</strong>：强制三段式格式</div>
+            <div class="dim">📊 <strong>输出解析</strong>：正则提取解题过程 / 图像判断 / 函数表达式</div>
+            <div class="dim">📝 <strong>历史管理</strong>：侧滑抽屉 + 多会话切换 + 最多 10 会话</div>
+            <div class="dim">🎯 <strong>操作按钮</strong>：绘制图像 / 分享过程</div>
+          </div>
+        </div>
+
+        <div class="card mt-s" style="border-left:3px solid #1e5ac4;padding:20px 24px">
+          <p style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-2);margin:0;line-height:1.7">
+            <strong style="color:#0a1e46">AI 格式化输出：</strong><br>
+            <span style="color:#1e5ac4">【解题过程】</span> → 分步解答<br>
+            <span style="color:#1e5ac4">【图像判断】</span> → 可绘制 / 不可绘制<br>
+            <span style="color:#1e5ac4">【函数表达式】</span> → f(x) = sin(x)
+          </p>
+        </div>
+      </div>
+
+      <div style="flex:1.2;min-width:320px">
+        <div class="screenshot-placeholder">
+          <div class="ph-icon">🤖</div>
+          <div class="ph-text">【界面截图占位】<br>AI 对话页面<br><br>请在演示时替换此框为实际截图</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="deck-footer">
+      <span class="mono">文件：src/app/ai-chat.tsx &nbsp;|&nbsp; 模型：deepseek-chat</span>
+      <span class="slide-number" data-current="4" data-total="8"></span>
+    </div>
+  </section>
+
+  <!-- ==================== 第5页：页面3 — 知识库 ==================== -->
+  <section class="slide" data-title="知识库页面">
+    <p class="kicker">page-03 / 第三个 Tab</p>
+    <h2 class="h2">📦 知识库页面</h2>
+    <p class="lede" style="font-size:17px">教学 + 考核 + 沉淀闭环 — 从 AI 对话到知识网络构建，打造个人知识体系。</p>
+
+    <div class="row mt-m" style="align-items:stretch;gap:24px">
+      <div style="flex:1;min-width:280px">
+        <div class="card-feature">
+          <h3 style="font-size:20px">Demo v1.0 已完成</h3>
+          <div class="stack" style="font-size:15px;line-height:1.8">
+            <div class="dim">🌳 <strong>树形大纲</strong>：学科 → 章节 → 节 → 知识点</div>
+            <div class="dim">📖 <strong>节点详情</strong>：标准定义(只读) + 个人笔记(可编辑防抖)</div>
+            <div class="dim">📊 <strong>进度概览</strong>：掌握状态徽章 + 百分比统计</div>
+            <div class="dim">🤖 <strong>AI 教学闭环</strong>：教学 → 考核 → 评分 → 笔记沉淀</div>
+            <div class="dim">🔄 <strong>模式切换</strong>：解题模式 ↔ 知识库学习模式</div>
+          </div>
+          <div class="row mt-s" style="gap:10px;flex-wrap:wrap">
+            <span class="tag">同济版 第一章</span>
+            <span class="tag">5 个概念节点</span>
+            <span class="tag">两页架构</span>
+            <span class="tag">expo-sqlite</span>
+          </div>
+        </div>
+
+        <div class="card mt-s" style="border-left:3px solid var(--brand);padding:20px 24px">
+          <p style="font-size:14px;color:var(--text-2);margin:0;line-height:1.7">
+            <strong style="color:#0a1e46">完整闭环链路：</strong><br>
+            大纲页 → 点击节点 → 详情页 → <span style="color:var(--brand-dark)">去学习</span> → AI 对话 → 考核 → 评分 → 笔记保存
+          </p>
+        </div>
+      </div>
+
+      <div style="flex:1.2;min-width:320px">
+        <div class="screenshot-placeholder">
+          <div class="ph-icon">📦</div>
+          <div class="ph-text">【界面截图占位】<br>知识库页面<br><br>请在演示时替换此框为实际截图</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="deck-footer">
+      <span class="mono">文件：src/app/knowledge.tsx &nbsp;|&nbsp; 数据库：expo-sqlite + Drizzle ORM</span>
+      <span class="slide-number" data-current="5" data-total="8"></span>
+    </div>
+  </section>
+
+  <!-- ==================== 第6页：重点 — 联动机制 ==================== -->
+  <section class="slide" data-title="联动机制">
+    <p class="kicker">core-feature · 重点介绍</p>
+    <h2 class="h2">🔗 跨页面联动 — 核心亮点</h2>
+    <p class="lede" style="font-size:17px;max-width:62ch">三大页面之间通过<strong style="color:var(--brand-dark)">全局状态 Context + useReducer</strong> 实现数据互通，AI 对话的输出可以自动驱动 GeoGebra 绘图。</p>
+
+    <!-- 联动架构图 -->
+    <div class="linkage-highlight">
+      <p style="text-align:center;font-weight:600;font-size:16px;color:#0a1e46;margin:0 0 20px">AI 对话 → GeoGebra 绘图联动全链路</p>
+      <div class="flow-box">
+        <div class="flow-step"><div class="fs-label">👤 用户输入</div><div class="fs-desc">"求 sin(x) 导数"</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="fs-label">🤖 DeepSeek</div><div class="fs-desc">返回结构化解析</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="fs-label">🔍 AI Parser</div><div class="fs-desc">提取 f(x)=sin(x)</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><div class="fs-label">📤 dispatch</div><div class="fs-desc">SEND_PLOT_COMMAND</div></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step" style="border-color:var(--brand);background:rgba(144,194,8,.06)"><div class="fs-label">📐 GeoGebra</div><div class="fs-desc">evalCommand()</div></div>
+      </div>
+    </div>
+
+    <!-- 关键技术细节 -->
+    <div class="row mt-l" style="gap:20px;align-items:stretch">
+      <div class="card-linkage" style="flex:1">
+        <h4 style="font-size:16px;margin:0 0 8px;color:#0a1e46">RN ↔ GeoGebra 通信</h4>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-2);line-height:1.7;margin:0">
+          <span style="color:#1e5ac4">Android:</span> webViewRef.injectJavaScript(<br>
+          &nbsp;&nbsp;'ggbApplet.evalCommand("f(x)=sin(x)")'<br>
+          )<br>
+          <span style="color:#1e5ac4">Web:</span> iframe.contentWindow.postMessage(<br>
+          &nbsp;&nbsp;{type:'evalCommand', expression:'f(x)=sin(x)'}<br>
+          )
+        </p>
+      </div>
+      <div class="card-linkage" style="flex:1">
+        <h4 style="font-size:16px;margin:0 0 8px;color:#0a1e46">知识库 → AI 对话联动</h4>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-2);line-height:1.7;margin:0">
+          大纲页点击「去学习」<br>
+          → dispatch CREATE_KNOWLEDGE_SESSION<br>
+          → 自动切换到 AI 对话页<br>
+          → 注入节点上下文 (label + standardDef)<br>
+          → 双模式：解题 / 知识库学习
+        </p>
+      </div>
+      <div class="card-linkage" style="flex:1">
+        <h4 style="font-size:16px;margin:0 0 8px;color:#0a1e46">状态管理架构</h4>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-2);line-height:1.7;margin:0">
+          React Context + useReducer<br>
+          _layout.tsx 层级提供<br>
+          • sessions[] · 对话会话<br>
+          • plotCommand · 绘图命令<br>
+          • activeChatMode · 学习模式<br>
+          • activeKnowledgeNodeId
+        </p>
+      </div>
+    </div>
+
+    <div class="deck-footer">
+      <span class="mono">核心文件：src/lib/app-state.tsx &nbsp;|&nbsp; 通信：postMessage / injectJavaScript</span>
+      <span class="slide-number" data-current="6" data-total="8"></span>
+    </div>
+  </section>
+
+  <!-- ==================== 第7页：未来开发计划 ==================== -->
+  <section class="slide" data-title="未来开发">
+    <p class="kicker">roadmap · 下一阶段</p>
+    <h2 class="h2">🚀 未来开发计划</h2>
+
+    <div class="row mt-l" style="align-items:stretch;gap:28px">
+      <!-- Obsidian导出 -->
+      <div class="card" style="flex:1;border-left:4px solid var(--brand);padding:32px 28px">
+        <h3 style="font-size:22px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:28px">📝</span> Obsidian 导出支持
+        </h3>
+        <p class="dim" style="font-size:15px;line-height:1.7;margin-bottom:16px">
+          将知识库中的学习内容导出为 <strong>Obsidian 兼容的 Markdown 格式</strong>，实现个人知识管理的跨工具联动。
+        </p>
+        <div class="stack" style="font-size:14px;line-height:1.9">
+          <div class="dim">🔗 <strong>双链支持</strong>：自动生成 [[wiki-link]] 内部链接</div>
+          <div class="dim">📋 <strong>Frontmatter</strong>：导出 YAML 元数据头（标签 / 日期 / 掌握状态）</div>
+          <div class="dim">📁 <strong>目录结构</strong>：按学科 → 章节 → 知识点生成文件夹层级</div>
+          <div class="dim">🔄 <strong>增量同步</strong>：仅导出变更节点，避免全量覆盖</div>
+        </div>
+        <div class="row mt-m" style="gap:10px">
+          <span class="tag-future">Phase 3</span>
+          <span class="tag-future">Markdown</span>
+          <span class="tag-future">跨平台</span>
+        </div>
+      </div>
+
+      <!-- 多学科支持 -->
+      <div class="card" style="flex:1;border-left:4px solid #1e5ac4;padding:32px 28px">
+        <h3 style="font-size:22px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:28px">🌍</span> 多学科支持
+        </h3>
+        <p class="dim" style="font-size:15px;line-height:1.7;margin-bottom:16px">
+          从<strong>高等数学</strong>扩展到物理、化学等更多学科，构建<strong>跨学科知识网络</strong>。
+        </p>
+        <div class="stack" style="font-size:14px;line-height:1.9">
+          <div class="dim">⚛️ <strong>物理</strong>：力学 / 电磁学 / 热学 知识大纲</div>
+          <div class="dim">🧪 <strong>化学</strong>：无机 / 有机 / 物化 反应方程式</div>
+          <div class="dim">📐 <strong>线代/概率论</strong>：矩阵运算 / 统计分布</div>
+          <div class="dim">🔗 <strong>跨学科关联</strong>：知识节点间横向引用</div>
+        </div>
+        <div class="row mt-m" style="gap:10px">
+          <span class="tag-future">Phase 3</span>
+          <span class="tag-future">多学科</span>
+          <span class="tag-future">知识网络</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 其他待开发 -->
+    <div class="card mt-l" style="padding:24px 28px;background:rgba(255,255,255,.7)">
+      <p style="font-weight:600;font-size:15px;color:#0a1e46;margin:0 0 10px">其他待开发功能（P1-P2）</p>
+      <div class="row" style="gap:16px;flex-wrap:wrap">
+        <span class="tag">LaTeX 公式渲染 (KaTeX)</span>
+        <span class="tag">AI 流式输出 (SSE)</span>
+        <span class="tag">暗色模式</span>
+        <span class="tag">对话上下文优化</span>
+        <span class="tag">函数表达式收藏</span>
+      </div>
+    </div>
+
+    <div class="deck-footer">
+      <span class="mono">路线图参照：README.md · docs/系统设计文档 · AiPlaning/PRD.md</span>
+      <span class="slide-number" data-current="7" data-total="8"></span>
+    </div>
+  </section>
+
+  <!-- ==================== 第8页：结尾 ==================== -->
+  <section class="slide center" data-title="结尾" style="text-align:center;justify-content:center;align-items:center">
+    <div>
+      <div style="font-size:100px;margin-bottom:10px">📚</div>
+      <h2 class="h2" style="margin-bottom:18px">Thank You</h2>
+      <p class="lede" style="font-size:18px;margin:0 auto;max-width:40ch;text-align:center">
+        伴学知识库 — 用 AI 让学习更直观、更系统。<br>
+        从解题到知识网络，一站完成。
+      </p>
+      <div class="row mt-l" style="justify-content:center;gap:14px;flex-wrap:wrap">
+        <span class="tag">📐 GeoGebra 离线绘图</span>
+        <span class="tag">🤖 DeepSeek AI</span>
+        <span class="tag">📦 知识库闭环</span>
+      </div>
+      <p class="dim mt-l" style="font-size:14px;font-family:'JetBrains Mono',monospace">
+        React Native · Expo SDK 56 · TypeScript · NativeWind
+      </p>
+      <p class="dim2" style="font-size:13px;font-family:'JetBrains Mono',monospace;margin-top:6px">
+        github.com/Cuckovo/MathLearningTool — 原始项目
+      </p>
+    </div>
+    <div class="deck-footer">
+      <span class="mono">#learntools #伴学知识库</span>
+      <span class="slide-number" data-current="8" data-total="8"></span>
+    </div>
+  </section>
+
+</div>
+
+<script src="assets/runtime.js"></script>
+</body>
+</html>
