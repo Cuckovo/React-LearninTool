@@ -83,6 +83,48 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
   .tech-grid{grid-template-columns:repeat(2,1fr)}
   .flow-box{flex-direction:column;gap:12px}
 }
+
+/* ===== 常驻毛玻璃导航按钮 ===== */
+.nav-glass{
+  position:fixed;bottom:28px;right:32px;z-index:9999;
+  display:flex;align-items:center;gap:6px;
+  padding:8px 10px;
+  background:rgba(255,255,255,.35);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid rgba(10,30,70,.12);
+  border-radius:16px;
+  box-shadow:0 4px 24px rgba(10,30,70,.08),0 1px 3px rgba(10,30,70,.06);
+  user-select:none;
+}
+.nav-glass button{
+  width:40px;height:40px;border:none;cursor:pointer;
+  background:rgba(255,255,255,.5);
+  border:1px solid rgba(10,30,70,.1);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:#0a1e46;
+  transition:all .2s cubic-bezier(.16,1,.3,1);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.nav-glass button:hover{
+  background:var(--brand);
+  color:#fff;
+  border-color:var(--brand);
+  transform:scale(1.08);
+  box-shadow:0 2px 12px rgba(144,194,8,.35);
+}
+.nav-glass button:active{transform:scale(.95)}
+.nav-glass button:disabled{
+  opacity:.3;cursor:not-allowed;
+  transform:none!important;background:rgba(255,255,255,.5);color:#0a1e46;border-color:rgba(10,30,70,.1);box-shadow:none;
+}
+.nav-glass .nav-divider{width:1px;height:24px;background:rgba(10,30,70,.1);margin:0 2px}
+.nav-glass .nav-count{
+  font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-2);
+  padding:0 8px;min-width:44px;text-align:center;
+}
 </style>
 </head>
 <body>
@@ -197,9 +239,8 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
 
       <!-- 右侧：截图占位 -->
       <div style="flex:1.2;min-width:320px">
-        <div class="screenshot-placeholder">
-          <div class="ph-icon">📐</div>
-          <div class="ph-text">【界面截图占位】<br>GeoGebra 绘图页面<br><br>请在演示时替换此框为实际截图</div>
+        <div class="screenshot-placeholder" style="padding:0">
+          <img src="src/1.png" alt="GeoGebra 绘图页面截图" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0">
         </div>
       </div>
     </div>
@@ -242,9 +283,8 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
       </div>
 
       <div style="flex:1.2;min-width:320px">
-        <div class="screenshot-placeholder">
-          <div class="ph-icon">💬</div>
-          <div class="ph-text">【界面截图占位】<br>AI 对话页面<br><br>请在演示时替换此框为实际截图</div>
+        <div class="screenshot-placeholder" style="padding:0">
+          <img src="src/2.png" alt="AI 对话页面截图" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0">
         </div>
       </div>
     </div>
@@ -289,9 +329,8 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
       </div>
 
       <div style="flex:1.2;min-width:320px">
-        <div class="screenshot-placeholder">
-          <div class="ph-icon">📦</div>
-          <div class="ph-text">【界面截图占位】<br>知识库页面<br><br>请在演示时替换此框为实际截图</div>
+        <div class="screenshot-placeholder" style="padding:0">
+          <img src="src/3.png" alt="知识库页面截图" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0">
         </div>
       </div>
     </div>
@@ -462,6 +501,51 @@ h3,.h3{font-size:28px;font-weight:600;color:#0a1e46}
 
 </div>
 
+<!-- 常驻毛玻璃导航按钮 -->
+<div class="nav-glass" id="navGlass">
+  <button id="navPrev" title="上一页 (←)" aria-label="上一页">&#10094;</button>
+  <span class="nav-divider"></span>
+  <span class="nav-count" id="navCount">1 / 8</span>
+  <span class="nav-divider"></span>
+  <button id="navNext" title="下一页 (→)" aria-label="下一页">&#10095;</button>
+</div>
+
 <script src="assets/runtime.js"></script>
+<script>
+/* ===== 毛玻璃导航按钮逻辑 ===== */
+(function(){
+  function dispatch(key){
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:key,bubbles:true}));
+  }
+  var btnPrev=document.getElementById('navPrev');
+  var btnNext=document.getElementById('navNext');
+  var navCount=document.getElementById('navCount');
+
+  btnPrev.addEventListener('click',function(){dispatch('ArrowLeft');});
+  btnNext.addEventListener('click',function(){dispatch('ArrowRight');});
+
+  /* 监听 slide 变化更新计数 + 禁用状态 */
+  function update(){
+    var numEl=document.querySelector('.slide-number');
+    if(numEl){
+      var cur=parseInt(numEl.getAttribute('data-current')||'1',10);
+      var tot=parseInt(numEl.getAttribute('data-total')||'8',10);
+      navCount.textContent=cur+' / '+tot;
+      btnPrev.disabled=(cur<=1);
+      btnNext.disabled=(cur>=tot);
+    }
+  }
+
+  /* hash 变化触发更新（runtime.go 会更新 hash） */
+  window.addEventListener('hashchange',update);
+  /* 也用 MutationObserver 监听 slide-number 属性变化 */
+  var numEl=document.querySelector('.slide-number');
+  if(numEl&&window.MutationObserver){
+    new MutationObserver(update).observe(numEl,{attributes:true,attributeFilter:['data-current']});
+  }
+  /* 初始化 */
+  setTimeout(update,100);
+})();
+</script>
 </body>
 </html>
