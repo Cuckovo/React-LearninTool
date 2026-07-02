@@ -2,7 +2,7 @@
 
 > 基于 React Native (Expo) 的跨平台 AI 交互学习工具，集成 GeoGebra 图形计算器 + DeepSeek AI 对话
 >
-> *由 [MathLearningTool](https://github.com/Cuckovo/MathLearningTool) 重构而来*
+> _由 [MathLearningTool](https://github.com/Cuckovo/MathLearningTool) 重构而来_
 
 ## 项目定位
 
@@ -23,26 +23,26 @@ AI 交互 ──→ 解题 & 答疑
 
 ### 三大模块
 
-| 模块 | 功能 | 状态 |
-|------|------|------|
-| 📐 **GeoGebra 绘图** | 离线渲染 GeoGebra 图形计算器，支持缩放/平移/函数输入 | ✅ 已完成 |
-| 🤖 **AI 数学助手** | DeepSeek 大模型分步解题，自动提取函数表达式并绘制图像 | ✅ 已完成 |
-| 📦 **知识库** | 学科大纲定制（同济版高数）、AI 教学/出题/评分、树形进度追踪 | ✅ 已完成 |
+| 模块                 | 功能                                                        | 状态      |
+| -------------------- | ----------------------------------------------------------- | --------- |
+| 📐 **GeoGebra 绘图** | 离线渲染 GeoGebra 图形计算器，支持缩放/平移/函数输入        | ✅ 已完成 |
+| 🤖 **AI 数学助手**   | DeepSeek 大模型分步解题，自动提取函数表达式并绘制图像       | ✅ 已完成 |
+| 📦 **知识库**        | 学科大纲定制（同济版高数）、AI 教学/出题/评分、树形进度追踪 | ✅ 已完成 |
 
 ## 技术栈
 
 基于 **Expo SDK 56 + React 19 + React Native 0.85** 构建，`NativeWind` (TailwindCSS 3.4) 处理样式。GeoGebra 通过 `react-native-webview` 加载离线包，DeepSeek Chat API 提供 AI 能力。
 
-| 层级 | 技术 |
-|------|------|
-| 框架 | Expo SDK 56 + Expo Router |
-| UI | React 19 + React Native 0.85 + NativeWind |
-| 状态管理 | React Context + useReducer |
-| 数据库 | expo-sqlite（Web: OPFS Worker / Native: 原生 SQLite） |
-| ORM | Drizzle ORM（Schema 定义 + 类型声明） |
-| AI 后端 | DeepSeek Chat API（解题 + 知识库教学双模式） |
-| 图形计算 | GeoGebra 5 离线包 (80MB) + postMessage 通信 |
-| 公式渲染 | 自研轻量 Markdown → HTML 渲染器（保护 LaTeX 公式） |
+| 层级     | 技术                                                  |
+| -------- | ----------------------------------------------------- |
+| 框架     | Expo SDK 56 + Expo Router                             |
+| UI       | React 19 + React Native 0.85 + NativeWind             |
+| 状态管理 | React Context + useReducer                            |
+| 数据库   | expo-sqlite（Web: OPFS Worker / Native: 原生 SQLite） |
+| ORM      | Drizzle ORM（Schema 定义 + 类型声明）                 |
+| AI 后端  | DeepSeek Chat API（解题 + 知识库教学双模式）          |
+| 图形计算 | GeoGebra 5 离线包 (80MB) + postMessage 通信           |
+| 公式渲染 | 自研轻量 Markdown → HTML 渲染器（保护 LaTeX 公式）    |
 
 ## 项目结构
 
@@ -99,8 +99,6 @@ src/
 - [x] Android Release APK 打包
 - [x] **数据库迁移**：AsyncStorage 替换为 expo-sqlite（Web OPFS / Native SQLite）
 - [x] **分级日志**：.env 控制 EXPO_PUBLIC_DB_LOG_LEVEL 输出级别
-- [ ] ~~LaTeX 公式渲染（KaTeX WebView 方案）~~ → 已改用自研 Markdown → HTML 渲染器
-- [ ] AI 流式输出（SSE）— StreamBuffer 已就绪，待接入 API
 
 ### 📦 知识库模块
 
@@ -111,7 +109,6 @@ src/
 - [x] **数据库驱动架构**：expo-sqlite 统管对话 + 知识库（sessions / messages / knowledge_nodes / agent_logs 四表）
 - [x] **学科大纲种子数据**：以《同济大学高等数学》第一章为示例（映射/函数/反函数/复合函数/初等函数，含权威定义）
 - [x] **AI 数据库 CRUD 交互**：对话中 AI 输出 ` ```db ` 代码块 → `set_user_notes` / `set_mastery` 自动操作数据库
-- [ ] **AI 生成学科大纲**：通过 AI Agent 在对话中自动生成完整大纲（当前为预置种子数据）
 
 #### Phase 2 — 内容填充 & 节点渲染（✅ 基本完成）
 
@@ -135,11 +132,3 @@ src/
 - [ ] **对话上下文检索**：AI 对话中可随时检索知识库全文上下文，用于复习问答和知识校验
 - [ ] **迁移剩余章节骨架**：种子数据当前仅含第一章（函数与极限）的 10 节骨架 + 5 个概念叶子
 - [ ] **AI 流式输出**：StreamBuffer 已就绪，支持流式 Markdown/LaTeX 渲染
-
-### ⚙️ 基础设施
-
-- [x] ESBuild 模块化架构替代原始 API 拼接
-- [x] 数据库结构文档化（`docs/数据库结构.md`）
-- [x] 分级日志 + .env 开发配置（`EXPO_PUBLIC_DB_LOG_LEVEL`）
-- [ ] 单元测试 / 集成测试
-- [ ] CI/CD 自动构建流水线
